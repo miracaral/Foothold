@@ -1060,7 +1060,7 @@ themeBtn.onclick=()=>{ const cur=document.documentElement.getAttribute("data-the
   theme=dark?"light":"dark"; document.documentElement.setAttribute("data-theme",theme); LS.set("pp_theme",theme); };
 
 /* focus + overlays + add/data */
-function openOv(id){ $("#"+id).hidden=false; }
+function openOv(id){ document.querySelectorAll(".overlay").forEach(o=>o.hidden=true); $("#"+id).hidden=false; }
 function closeOv(id){ $("#"+id).hidden=true; }
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeOv(b.dataset.close));
 document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{ if(e.target===o) o.hidden=true; }));
