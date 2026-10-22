@@ -1,0 +1,1129 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Foothold</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a mode switch (Playbook / By Port / Scan) over a sticky toolbar (target vars, search,
+   OS filter) and a single column of grouped command cards. Dark-first operator console; clean docs in light. */
+:root{
+  --bg:#0c0f14; --surface:#141922; --surface-2:#1b222d; --border:#273243;
+  --fg:#e6edf3; --muted:#8b98a9; --accent:#f2a33c; --accent-ink:#1a1205;
+  --ph-recon:#38bdf8; --ph-enum:#818cf8; --ph-access:#c084fc;
+  --ph-privesc:#f2a33c; --ph-lateral:#f87171; --ph-web:#34d399; --ph-post:#94a3b8;
+  --ok:#34d399; --radius:12px;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){ :root:not([data-theme="dark"]){
+  --bg:#f6f7f9; --surface:#ffffff; --surface-2:#eef1f5; --border:#d9dee6;
+  --fg:#1b2430; --muted:#5a6676; --accent:#9c5a0b; --accent-ink:#ffffff; --ok:#128a5e; color-scheme:light;
+}}
+:root[data-theme="light"]{
+  --bg:#f6f7f9; --surface:#ffffff; --surface-2:#eef1f5; --border:#d9dee6;
+  --fg:#1b2430; --muted:#5a6676; --accent:#9c5a0b; --accent-ink:#ffffff; --ok:#128a5e; color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  max-width:1060px;margin:0 auto}
+a{color:var(--accent)}
+h1,h2,h3{margin:0;text-wrap:balance}
+button{font:inherit;cursor:pointer;color:inherit}
+
+.hero{padding-block:22px 10px}
+.brand{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:34px;height:34px;flex:none;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);
+  display:grid;place-items:center;color:var(--accent)}
+.logo svg{width:20px;height:20px}
+.title-main{font-size:1.4rem;font-weight:700;letter-spacing:-.01em}
+.title-main span{color:var(--accent)}
+.tagline{color:var(--muted);font-size:.9rem;margin-top:3px;max-width:64ch}
+.hero-actions{margin-left:auto;display:flex;align-items:center;gap:10px}
+.progress{font-family:var(--mono);font-size:.8rem;color:var(--muted);white-space:nowrap}
+.progress b{color:var(--fg)}
+.icon-btn{width:34px;height:34px;border:1px solid var(--border);background:var(--surface);border-radius:9px;
+  display:grid;place-items:center;color:var(--muted)}
+.icon-btn:hover{color:var(--fg);border-color:var(--accent)}
+.icon-btn svg{width:17px;height:17px}
+
+/* mode switch */
+.modes{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:3px;margin-top:16px;gap:3px}
+.mode{display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:7px;border:0;background:none;
+  color:var(--muted);font-weight:500;font-size:.88rem}
+.mode svg{width:15px;height:15px}
+.mode[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+
+/* target variables */
+.vars{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-top:14px;overflow:hidden}
+.vars-head{display:flex;align-items:center;gap:8px;padding:11px 14px;width:100%;background:none;border:0;text-align:left}
+.vars-head .lbl{font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.vars-head .hint{margin-left:auto;color:var(--muted);font-size:.78rem}
+.chev{transition:transform .18s;color:var(--muted);display:inline-flex}
+.vars[data-open="false"] .vars-head .chev{transform:rotate(-90deg)}
+.vars-body{padding:4px 14px 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.vars[data-open="false"] .vars-body{display:none}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;font-family:var(--mono)}
+.field input{font-family:var(--mono);font-size:.84rem;background:var(--bg);color:var(--fg);border:1px solid var(--border);
+  border-radius:8px;padding:7px 9px;width:100%}
+.field input:focus{outline:none;border-color:var(--accent)}
+.field input::placeholder{color:var(--muted);opacity:.6}
+
+/* scan panel */
+.scan{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-top:14px;padding:14px}
+.scan h2{font-size:.95rem;font-weight:600;display:flex;align-items:center;gap:8px}
+.scan p{color:var(--muted);font-size:.84rem;margin:5px 0 10px}
+.scan textarea{width:100%;min-height:120px;font-family:var(--mono);font-size:.82rem;line-height:1.6;
+  background:var(--bg);color:var(--fg);border:1px solid var(--border);border-radius:9px;padding:11px;resize:vertical}
+.scan textarea:focus{outline:none;border-color:var(--accent)}
+.scan-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:.86rem;padding:8px 15px;border-radius:9px;
+  border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:none;color:var(--fg);border-color:var(--border)}
+.btn.ghost:hover{border-color:var(--accent)}
+.btn svg{width:15px;height:15px}
+.detected{display:flex;gap:6px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:.82rem}
+.ipfound{font-family:var(--mono)}
+
+/* sticky toolbar */
+.toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);padding-block:12px 8px;margin-top:14px}
+.search{position:relative}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted)}
+.search input{width:100%;font-family:var(--sans);font-size:.92rem;background:var(--surface);color:var(--fg);
+  border:1px solid var(--border);border-radius:10px;padding:10px 42px}
+.search input:focus{outline:none;border-color:var(--accent)}
+.search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:.7rem;
+  color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:2px 6px}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:.8rem;font-weight:500;padding:5px 11px;border-radius:999px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted)}
+.chip:hover{color:var(--fg)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+
+/* phase tabs */
+.nav-row{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:4px;scrollbar-width:thin}
+.phase-tab{flex:none;display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:9px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);font-weight:500;font-size:.86rem;white-space:nowrap}
+.phase-tab:hover{color:var(--fg)}
+.phase-tab .dot{width:8px;height:8px;border-radius:50%;background:var(--ph);flex:none}
+.phase-tab[aria-pressed="true"]{color:var(--fg);border-color:var(--ph);background:color-mix(in srgb,var(--ph) 12%,var(--surface))}
+.phase-tab .n{font-family:var(--mono);font-size:.72rem;color:var(--muted)}
+
+/* port tiles */
+.ports{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:4px;scrollbar-width:thin}
+.port-tile{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 12px;border-radius:9px;
+  border:1px solid var(--border);background:var(--surface);min-width:70px}
+.port-tile:hover{border-color:var(--accent)}
+.port-tile .pnum{font-family:var(--mono);font-weight:600;font-size:.9rem;color:var(--fg)}
+.port-tile .psvc{font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.port-tile[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.port-tile[aria-pressed="true"] .pnum{color:var(--accent)}
+
+main{padding-block:10px 40px}
+.catgroup{margin-top:22px}
+.catgroup:first-child{margin-top:8px}
+.cat-h{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+.cat-h .bar{width:3px;height:15px;border-radius:2px;background:var(--ph)}
+.cat-h h3{font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.cat-h .tag{margin-left:2px}
+.phase-head{display:flex;align-items:baseline;gap:10px;margin:26px 0 2px}
+.phase-head h2{font-size:1.05rem;font-weight:700}
+.phase-head .pn{font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;
+  margin-bottom:10px;border-left:3px solid var(--ph)}
+.card.done{opacity:.55}
+.card-top{display:flex;align-items:flex-start;gap:10px}
+.chk{flex:none;width:19px;height:19px;margin-top:1px;border:1.5px solid var(--border);border-radius:5px;background:var(--bg);
+  display:grid;place-items:center;color:transparent}
+.chk:hover{border-color:var(--accent)}
+.card.done .chk{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chk svg{width:12px;height:12px}
+.card-head{flex:1;min-width:0}
+.card-title{font-weight:600;font-size:.95rem}
+.card-note{color:var(--muted);font-size:.84rem;margin-top:2px}
+.tag{font-family:var(--mono);font-size:.64rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);
+  background:var(--surface-2);border-radius:5px;padding:2px 6px;white-space:nowrap}
+.card-ports{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.cmd{display:flex;align-items:center;gap:10px;margin-top:11px;background:var(--bg);border:1px solid var(--border);
+  border-radius:9px;padding:9px 11px}
+.cmd code{font-family:var(--mono);font-size:.84rem;overflow-x:auto;white-space:pre;flex:1;min-width:0;scrollbar-width:thin;line-height:1.7}
+.cmd code .val{color:var(--accent);font-weight:600}
+.cmd code .ph{color:var(--muted);opacity:.7}
+.copy{flex:none;display:flex;align-items:center;gap:6px;font-size:.76rem;font-weight:500;color:var(--muted);
+  background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:5px 9px}
+.copy:hover{color:var(--fg);border-color:var(--accent)}
+.copy svg{width:13px;height:13px}
+.card-foot{margin-top:9px;font-size:.78rem}
+.card-foot a{display:inline-flex;align-items:center;gap:5px;color:var(--muted);text-decoration:none}
+.card-foot a:hover{color:var(--accent)}
+.card-foot svg{width:12px;height:12px}
+
+.empty{text-align:center;color:var(--muted);padding:48px 20px;font-size:.92rem}
+.empty b{color:var(--fg)}
+
+.extend{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:8px 0 10px;overflow:hidden}
+.extend summary{list-style:none;cursor:pointer;padding:13px 15px;display:flex;align-items:center;gap:9px;font-weight:600;font-size:.9rem}
+.extend summary::-webkit-details-marker{display:none}
+.extend summary .chev{margin-left:auto}
+.extend[open] summary .chev{transform:rotate(90deg)}
+.extend-body{padding:0 16px 16px;color:var(--muted);font-size:.88rem}
+.extend-body p{margin:8px 0}
+.extend-body code{font-family:var(--mono);font-size:.82rem;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:1px 5px;color:var(--fg)}
+.extend-body pre{font-family:var(--mono);font-size:.78rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:11px;overflow-x:auto;color:var(--fg);line-height:1.6}
+
+footer{color:var(--muted);font-size:.78rem;padding-block:6px 30px;border-top:1px solid var(--border);margin-top:10px;
+  display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+.toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(14px);
+  background:var(--fg);color:var(--bg);font-size:.84rem;font-weight:500;padding:9px 16px;border-radius:9px;opacity:0;
+  pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* action row */
+.actions{display:flex;gap:7px;align-items:center;margin-top:10px}
+.actions .spacer{flex:1}
+.chip.tgl[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.chip.icon{display:inline-flex;align-items:center;gap:5px}
+.chip.icon svg{width:13px;height:13px}
+
+/* badges + per-card extras */
+.badge-custom{font-family:var(--mono);font-size:.62rem;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent);border:1px solid var(--accent);
+  border-radius:5px;padding:1px 6px;margin-left:7px;vertical-align:middle}
+.card-foot{display:flex;align-items:center;gap:12px;margin-top:9px;font-size:.78rem}
+.card-foot .fsp{flex:1}
+.foot-btn{display:inline-flex;align-items:center;gap:5px;color:var(--muted);background:none;border:0;padding:0;font-size:.78rem}
+.foot-btn:hover{color:var(--accent)}
+.foot-btn svg{width:13px;height:13px}
+.foot-btn.on{color:var(--accent)}
+.foot-btn .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.note-area{margin-top:9px}
+.note-area textarea{width:100%;min-height:52px;font-family:var(--sans);font-size:.84rem;background:var(--bg);
+  color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;resize:vertical}
+.note-area textarea:focus{outline:none;border-color:var(--accent)}
+.copy-all{display:inline-flex;align-items:center;gap:5px;margin-left:auto;font-size:.72rem;font-weight:500;
+  color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:4px 9px}
+.copy-all:hover{color:var(--fg);border-color:var(--accent)}
+.copy-all svg{width:12px;height:12px}
+.cat-h{align-items:center}
+.phase-head{align-items:center}
+.phase-head .copy-all{margin-left:auto}
+
+/* overlay */
+.overlay{position:fixed;inset:0;z-index:60;background:color-mix(in srgb,#000 55%,transparent);
+  display:grid;place-items:start center;padding:24px 16px;overflow:auto}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:520px;
+  margin-top:24px}
+.panel-head{display:flex;align-items:center;gap:10px;padding:15px 17px;border-bottom:1px solid var(--border)}
+.panel-head h2{font-size:1rem;font-weight:700}
+.panel-head .x{margin-left:auto;width:30px;height:30px;border:1px solid var(--border);border-radius:8px;background:var(--bg);
+  color:var(--muted);display:grid;place-items:center}
+.panel-head .x:hover{color:var(--fg);border-color:var(--accent)}
+.panel-body{padding:16px 17px;display:flex;flex-direction:column;gap:12px}
+.pf{display:flex;flex-direction:column;gap:5px}
+.pf label{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.pf input,.pf select,.pf textarea{font-family:var(--mono);font-size:.84rem;background:var(--bg);color:var(--fg);
+  border:1px solid var(--border);border-radius:8px;padding:8px 10px;width:100%}
+.pf textarea{font-family:var(--mono);min-height:80px;resize:vertical}
+.pf input:focus,.pf select:focus,.pf textarea:focus{outline:none;border-color:var(--accent)}
+.pf.row2{flex-direction:row;gap:10px}.pf.row2>div{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0}
+.tagpick{display:flex;gap:6px;flex-wrap:wrap}
+.tagpick label{display:inline-flex;align-items:center;gap:5px;font-family:var(--sans);font-size:.8rem;
+  text-transform:none;letter-spacing:0;color:var(--fg);border:1px solid var(--border);border-radius:999px;
+  padding:4px 10px;cursor:pointer}
+.tagpick input{width:auto}
+.panel-foot{display:flex;gap:9px;justify-content:flex-end;padding:0 17px 17px}
+.hint-sm{color:var(--muted);font-size:.8rem;margin:0}
+
+@media (max-width:560px){
+  .hero-actions{width:100%;margin-left:0;margin-top:4px}
+  .progress{margin-right:auto}
+  .modes{width:100%}.mode{flex:1;justify-content:center}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg>
+      </div>
+      <div>
+        <div class="title-main">Foot<span>hold</span></div>
+        <div class="tagline">Set your target once &mdash; every command fills itself in. Work the kill-chain by phase, jump straight to a service by port, or paste an Nmap scan and get commands for exactly what is open.</div>
+      </div>
+      <div class="hero-actions">
+        <span class="progress" id="progress">0 / 0 done</span>
+        <button class="icon-btn" id="reset" title="Reset progress" aria-label="Reset progress">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+        <button class="icon-btn" id="theme" title="Toggle theme" aria-label="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="modes" role="tablist" id="modes">
+      <button class="mode" data-mode="play" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Playbook</button>
+      <button class="mode" data-mode="port" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>By Port</button>
+      <button class="mode" data-mode="scan" role="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>Scan</button>
+    </div>
+
+    <div class="vars" id="vars" data-open="true">
+      <button class="vars-head" id="varsToggle" aria-expanded="true">
+        <span class="chev" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+        <span class="lbl">Target</span>
+        <span class="hint">values fill into every command</span>
+      </button>
+      <div class="vars-body" id="varsBody"></div>
+    </div>
+
+    <div class="scan" id="scanPanel" hidden>
+      <h2><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg> Find by scan, banner or service</h2>
+      <p>Paste an <code>nmap -sC -sV</code> result, a service banner, or just port numbers / names (e.g. <code>445 ldap kerberos</code>). It finds the ports, pulls the target IP, and shows the commands for each. Anything not covered yet, you can add in one click.</p>
+      <textarea id="scanInput" spellcheck="false" placeholder="Nmap scan report for 10.10.10.10&#10;22/tcp   open  ssh           OpenSSH 8.2p1&#10;445/tcp  open  microsoft-ds&#10;&#10;&mdash; or just: 88 ldap smb winrm"></textarea>
+      <div class="scan-actions">
+        <button class="btn" id="parseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>Parse scan</button>
+        <button class="btn ghost" id="scanClear">Clear</button>
+        <span class="detected" id="detected"></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="search" placeholder="Search commands, tools, techniques&hellip;" autocomplete="off" spellcheck="false">
+      <kbd>/</kbd>
+    </div>
+    <div class="chips" id="osChips"></div>
+    <div class="actions">
+      <button class="chip tgl" id="focusTgl" aria-pressed="false">Unchecked only</button>
+      <span class="spacer"></span>
+      <button class="chip icon" id="addBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Add command</button>
+      <button class="chip icon" id="dataBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Data</button>
+    </div>
+    <nav class="nav-row" id="phases" aria-label="Attack phases"></nav>
+    <nav class="ports" id="portTiles" aria-label="Open ports" hidden></nav>
+  </div>
+
+  <main id="main"></main>
+
+  <details class="extend">
+    <summary>Extend &amp; deploy
+      <span class="chev" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+    </summary>
+    <div class="extend-body">
+      <p>Every card is one object in the <code>DATA</code> array near the top of the script. Add your own from a lab write-up by copying the shape &mdash; <code>ports</code> is what makes it show up in By-Port and Scan mode:</p>
+      <pre>{ phase:"lateral", cat:"Active Directory", tags:["ad"], ports:[445],
+  title:"Dump LSA secrets",
+  cmd:"impacket-secretsdump {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}}",
+  note:"Pull hashes once you have admin on the host.",
+  src:{t:"Impacket", u:"https://github.com/fortra/impacket"} }</pre>
+      <p>Any <code>{{TOKEN}}</code> in a <code>cmd</code> becomes a target field automatically; list new ones in <code>VARS</code>. New service? Add its number to <code>SERVICES</code> and tag entries with that port.</p>
+      <p><b>Deploy:</b> one self-contained file, no build step and no backend. Put <code>index.html</code> in a repo with GitHub Pages on, or drag the folder onto Vercel / Netlify.</p>
+    </div>
+  </details>
+
+  <footer>
+    <span>Reference material compiled from public sources &mdash; for authorized testing and CTF practice only.</span>
+  </footer>
+</div>
+
+<div class="overlay" id="addOverlay" hidden>
+  <div class="panel" role="dialog" aria-label="Add command">
+    <div class="panel-head">
+      <h2>Add a command</h2>
+      <button class="x" data-close="addOverlay" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+      <p class="hint-sm">Saved in this browser only. Use <code>{{IP}}</code>, <code>{{USER}}</code> &hellip; and they fill from the Target bar. Export it from <b>Data</b> to keep or share.</p>
+      <div class="pf row2">
+        <div><label for="af-phase">Phase</label>
+          <select id="af-phase"></select></div>
+        <div><label for="af-cat">Category</label>
+          <input id="af-cat" placeholder="e.g. SMB" autocomplete="off"></div>
+      </div>
+      <div class="pf"><label for="af-title">Title *</label>
+        <input id="af-title" placeholder="What it does" autocomplete="off"></div>
+      <div class="pf"><label for="af-cmd">Command *</label>
+        <textarea id="af-cmd" spellcheck="false" placeholder="netexec smb {{IP}} -u {{USER}} -p {{PASS}}"></textarea></div>
+      <div class="pf"><label for="af-note">Note</label>
+        <input id="af-note" placeholder="One line on why / when" autocomplete="off"></div>
+      <div class="pf"><label>OS tags</label>
+        <div class="tagpick" id="af-tags"></div></div>
+      <div class="pf row2">
+        <div><label for="af-ports">Ports</label>
+          <input id="af-ports" placeholder="445, 139" autocomplete="off"></div>
+        <div><label for="af-src">Source URL</label>
+          <input id="af-src" placeholder="https://&hellip;" autocomplete="off"></div>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn ghost" data-close="addOverlay">Cancel</button>
+      <button class="btn" id="af-save">Add command</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="dataOverlay" hidden>
+  <div class="panel" role="dialog" aria-label="Your data">
+    <div class="panel-head">
+      <h2>Your data</h2>
+      <button class="x" data-close="dataOverlay" aria-label="Close">&times;</button>
+    </div>
+    <div class="panel-body">
+      <p class="hint-sm">Everything lives in this browser. Copy this to back it up or move it to another device; paste it below and import to restore.</p>
+      <div class="pf"><label for="dx-out">Export</label>
+        <textarea id="dx-out" readonly spellcheck="false"></textarea></div>
+      <button class="btn ghost" id="dx-copy" style="align-self:flex-start">Copy export</button>
+      <div class="pf"><label for="dx-in">Import</label>
+        <textarea id="dx-in" spellcheck="false" placeholder="Paste exported data here"></textarea></div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn ghost" data-close="dataOverlay">Close</button>
+      <button class="btn" id="dx-import">Import &amp; merge</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ========================================================================
+   DATA — edit / extend this. One object = one card.
+   phase: recon|enum|access|privesc|lateral|web|post
+   tags : linux|windows|ad|web|net|any     (OS filter)
+   ports: [numbers]                        (By-Port + Scan modes; omit for generic steps)
+   {{TOKENS}} in cmd auto-fill from the Target bar.
+   ===================================================================== */
+const VARS = [
+  {k:"IP",ph:"10.10.10.10"},{k:"DOMAIN",ph:"corp.local"},{k:"DC_IP",ph:"10.10.10.2"},
+  {k:"USER",ph:"j.doe"},{k:"PASS",ph:"Password1"},{k:"HASH",ph:"NTLM hash"},
+  {k:"LHOST",ph:"10.10.14.5"},{k:"LPORT",ph:"443"},{k:"PORTS",ph:"22,80,445"},
+  {k:"WORDLIST",ph:"/usr/share/seclists/…/common.txt"}
+];
+
+const PHASES = [
+  {id:"recon",label:"Recon",hue:"var(--ph-recon)"},
+  {id:"enum",label:"Enumeration",hue:"var(--ph-enum)"},
+  {id:"access",label:"Foothold",hue:"var(--ph-access)"},
+  {id:"privesc",label:"Privilege Esc",hue:"var(--ph-privesc)"},
+  {id:"lateral",label:"AD / Lateral",hue:"var(--ph-lateral)"},
+  {id:"web",label:"Web",hue:"var(--ph-web)"},
+  {id:"post",label:"Post / Loot",hue:"var(--ph-post)"}
+];
+
+/* port number -> short service label (By-Port tiles + Scan headers) */
+const SERVICES = {
+  21:"FTP",22:"SSH",25:"SMTP",53:"DNS",80:"HTTP",88:"Kerberos",110:"POP3",111:"NFS",
+  135:"MSRPC",139:"NetBIOS",143:"IMAP",161:"SNMP",389:"LDAP",443:"HTTPS",445:"SMB",
+  636:"LDAPS",1433:"MSSQL",2049:"NFS",3268:"GlobalCat",3306:"MySQL",3389:"RDP",
+  5432:"Postgres",5985:"WinRM",5986:"WinRM/S",6379:"Redis",
+  69:"TFTP",79:"Finger",873:"rsync",1521:"Oracle",2375:"Docker",3000:"Grafana",5900:"VNC",
+  8000:"HTTP-alt",8080:"HTTP-alt",8443:"HTTPS-alt",8089:"Splunk",9200:"Elastic",10000:"Webmin",
+  11211:"Memcache",27017:"MongoDB"
+};
+
+const HT   = u => ({t:"HackTricks",u});
+const PEAS = {t:"PEASS-ng",u:"https://github.com/peass-ng/PEASS-ng"};
+const GTFO = {t:"GTFOBins",u:"https://gtfobins.github.io/"};
+const NXC  = {t:"NetExec",u:"https://www.netexec.wiki/"};
+const IMP  = {t:"Impacket",u:"https://github.com/fortra/impacket"};
+
+const DATA = [
+  /* ===== RECON ===== */
+  {phase:"recon",cat:"Port scanning",tags:["net"],title:"Full TCP port sweep",
+    cmd:"nmap -p- --min-rate 1000 -T4 {{IP}}",note:"Fast pass over all 65535 ports to find what is open.",
+    src:HT("https://book.hacktricks.wiki/en/generic-methodologies-and-resources/pentesting-network/")},
+  {phase:"recon",cat:"Port scanning",tags:["net"],title:"Service & script scan",
+    cmd:"nmap -sC -sV -p{{PORTS}} {{IP}} -oN nmap.txt",note:"Versions and default scripts on the open ports — paste this into Scan mode.",
+    src:{t:"nmap",u:"https://nmap.org/book/man-briefoptions.html"}},
+  {phase:"recon",cat:"Port scanning",tags:["net"],title:"Rustscan → nmap",
+    cmd:"rustscan -a {{IP}} -- -sC -sV",note:"Very fast discovery that pipes straight into nmap.",
+    src:{t:"RustScan",u:"https://github.com/RustScan/RustScan"}},
+  {phase:"recon",cat:"Port scanning",tags:["net"],title:"Top UDP services",
+    cmd:"nmap -sU --top-ports 20 {{IP}}",note:"Catches SNMP, DNS, TFTP and other UDP-only services.",
+    src:{t:"nmap",u:"https://nmap.org/book/scan-methods-udp-scan.html"}},
+  {phase:"recon",cat:"Host discovery",tags:["net"],title:"Live hosts on a subnet",
+    cmd:"nmap -sn {{IP}}/24",note:"Ping sweep to map which hosts answer on the network.",
+    src:{t:"nmap",u:"https://nmap.org/book/host-discovery.html"}},
+
+  /* ===== 21 FTP ===== */
+  {phase:"enum",cat:"FTP",tags:["net"],ports:[21],title:"Anonymous login",
+    cmd:"ftp {{IP}}",note:"Try anonymous / anonymous and look for readable files.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ftp/")},
+  {phase:"enum",cat:"FTP",tags:["net"],ports:[21],title:"Mirror everything",
+    cmd:"wget -r ftp://anonymous:anonymous@{{IP}}/",note:"Recursively pull all files the anonymous user can read.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ftp/")},
+
+  /* ===== 22 SSH ===== */
+  {phase:"access",cat:"SSH",tags:["linux","net"],ports:[22],title:"Log in",
+    cmd:"ssh {{USER}}@{{IP}}",note:"Straight login once you have a username and password.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ssh.html")},
+  {phase:"access",cat:"SSH",tags:["net"],ports:[22],title:"Brute / spray login",
+    cmd:"hydra -l {{USER}} -P {{WORDLIST}} {{IP}} ssh",note:"Test one user against a wordlist (also works on ftp, http-form, etc).",
+    src:{t:"Hydra",u:"https://github.com/vanhauser-thc/thc-hydra"}},
+  {phase:"privesc",cat:"SSH",tags:["any"],ports:[22],title:"Crack a key passphrase",
+    cmd:"ssh2john id_rsa > hash && john hash",note:"Recover the passphrase on a private key you looted.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ssh.html")},
+
+  /* ===== 25 SMTP ===== */
+  {phase:"enum",cat:"SMTP",tags:["net"],ports:[25],title:"User enumeration",
+    cmd:"nc {{IP}} 25   # then: VRFY {{USER}}",note:"VRFY / RCPT TO often confirm which users exist.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-smtp/")},
+
+  /* ===== 53 DNS ===== */
+  {phase:"enum",cat:"DNS",tags:["net"],ports:[53],title:"Zone transfer",
+    cmd:"dig axfr {{DOMAIN}} @{{IP}}",note:"A misconfigured server hands over every record at once.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-dns.html")},
+
+  /* ===== 80 / 443 HTTP(S) ===== */
+  {phase:"enum",cat:"Web content",tags:["web"],ports:[80,443,8000,8080,8443],title:"Directory brute force",
+    cmd:"feroxbuster -u http://{{IP}} -w {{WORDLIST}}",note:"Recursively find hidden directories and files.",
+    src:{t:"feroxbuster",u:"https://github.com/epi052/feroxbuster"}},
+  {phase:"enum",cat:"Web content",tags:["web"],ports:[80,443,8000,8080,8443],title:"Fingerprint the stack",
+    cmd:"whatweb http://{{IP}}",note:"Identify the server, CMS, frameworks and versions.",
+    src:{t:"WhatWeb",u:"https://github.com/urbanadventurer/WhatWeb"}},
+  {phase:"enum",cat:"Web content",tags:["web"],ports:[80,443],title:"Virtual host discovery",
+    cmd:"ffuf -u http://{{IP}} -H \"Host: FUZZ.{{DOMAIN}}\" -w {{WORDLIST}} -fs 0",
+    note:"Reveal name-based vhosts hidden behind one IP.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-web/")},
+  {phase:"enum",cat:"Web content",tags:["web"],ports:[80,443,8000,8080,8443],title:"Misconfig scan",
+    cmd:"nikto -h http://{{IP}}",note:"Quick sweep for known server misconfigurations.",
+    src:{t:"Nikto",u:"https://github.com/sullo/nikto"}},
+  {phase:"enum",cat:"Web content",tags:["web"],ports:[80,443],title:"WordPress enumeration",
+    cmd:"wpscan --url http://{{IP}} --enumerate u,vp",note:"Enumerate WordPress users and vulnerable plugins.",
+    src:{t:"WPScan",u:"https://github.com/wpscanteam/wpscan"}},
+  {phase:"enum",cat:"Web content",tags:["web"],ports:[443],title:"Inspect TLS",
+    cmd:"sslscan {{IP}}:443",note:"Weak ciphers and cert details sometimes leak hostnames.",
+    src:{t:"testssl.sh",u:"https://testssl.sh/"}},
+
+  /* ===== 88 Kerberos ===== */
+  {phase:"enum",cat:"Kerberos",tags:["ad"],ports:[88],title:"Validate usernames",
+    cmd:"kerbrute userenum -d {{DOMAIN}} --dc {{DC_IP}} {{WORDLIST}}",
+    note:"Confirm which usernames exist without locking accounts.",
+    src:{t:"kerbrute",u:"https://github.com/ropnop/kerbrute"}},
+  {phase:"lateral",cat:"Kerberos",tags:["ad"],ports:[88],title:"AS-REP roasting",
+    cmd:"impacket-GetNPUsers {{DOMAIN}}/ -usersfile users.txt -dc-ip {{DC_IP}} -no-pass",
+    note:"Accounts without pre-auth hand out crackable hashes.",
+    src:HT("https://book.hacktricks.wiki/en/windows-hardening/active-directory-methodology/asreproast.html")},
+  {phase:"lateral",cat:"Kerberos",tags:["ad"],ports:[88],title:"Kerberoasting",
+    cmd:"impacket-GetUserSPNs {{DOMAIN}}/{{USER}}:{{PASS}} -dc-ip {{DC_IP}} -request",
+    note:"Service-account tickets you can crack offline.",
+    src:HT("https://book.hacktricks.wiki/en/windows-hardening/active-directory-methodology/kerberoast.html")},
+
+  /* ===== 111 / 2049 NFS ===== */
+  {phase:"enum",cat:"NFS",tags:["net"],ports:[111,2049],title:"List exports",
+    cmd:"showmount -e {{IP}}",note:"See which shares are exported, then mount them locally.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/nfs-service-pentesting.html")},
+
+  /* ===== 135 MSRPC ===== */
+  {phase:"enum",cat:"MSRPC",tags:["windows","ad"],ports:[135],title:"Dump RPC endpoints",
+    cmd:"impacket-rpcdump {{IP}}",note:"Map the exposed RPC services on the host.",
+    src:IMP},
+  {phase:"lateral",cat:"MSRPC",tags:["windows","ad"],ports:[135],title:"Command exec (WMI)",
+    cmd:"impacket-wmiexec {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}}",note:"Semi-interactive shell over WMI, no service created.",
+    src:IMP},
+
+  /* ===== 139 / 445 SMB ===== */
+  {phase:"enum",cat:"SMB",tags:["windows","net"],ports:[139,445],title:"List shares (null session)",
+    cmd:"smbclient -L //{{IP}} -N",note:"Try to list shares with no credentials.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-smb/")},
+  {phase:"enum",cat:"SMB",tags:["windows","net"],ports:[139,445],title:"enum4linux-ng",
+    cmd:"enum4linux-ng -A {{IP}}",note:"Users, groups, shares and OS info over SMB/RPC.",
+    src:{t:"enum4linux-ng",u:"https://github.com/cddmp/enum4linux-ng"}},
+  {phase:"enum",cat:"SMB",tags:["windows","ad"],ports:[445],title:"Shares & access (NetExec)",
+    cmd:"netexec smb {{IP}} -u '{{USER}}' -p '{{PASS}}' --shares",note:"Enumerate shares and read/write access.",src:NXC},
+  {phase:"lateral",cat:"SMB",tags:["ad"],ports:[445],title:"Password spray",
+    cmd:"netexec smb {{IP}} -u users.txt -p '{{PASS}}' --continue-on-success",note:"One password against many users across hosts.",src:NXC},
+  {phase:"lateral",cat:"SMB",tags:["ad"],ports:[445],title:"Pass-the-hash",
+    cmd:"netexec smb {{IP}} -u {{USER}} -H {{HASH}}",note:"Authenticate with an NTLM hash, no cleartext password.",
+    src:HT("https://book.hacktricks.wiki/en/windows-hardening/ntlm/")},
+  {phase:"lateral",cat:"SMB",tags:["windows","ad"],ports:[445],title:"Shell via PsExec",
+    cmd:"impacket-psexec {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}}",note:"SYSTEM shell when the user is a local admin.",src:IMP},
+  {phase:"lateral",cat:"SMB",tags:["ad"],ports:[445],title:"Dump secrets (with admin)",
+    cmd:"impacket-secretsdump {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}}",note:"Pull local or domain hashes once you have admin.",src:IMP},
+
+  /* ===== 161 SNMP ===== */
+  {phase:"enum",cat:"SNMP",tags:["net"],ports:[161],title:"Walk the tree",
+    cmd:"snmpwalk -v2c -c public {{IP}}",note:"Default 'public' community string often leaks a lot.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-snmp/")},
+
+  /* ===== 389 / 3268 LDAP ===== */
+  {phase:"enum",cat:"LDAP",tags:["ad"],ports:[389,3268],title:"Anonymous bind search",
+    cmd:"ldapsearch -x -H ldap://{{IP}} -b \"DC=…\" ",note:"Dump directory objects if anonymous binds are allowed.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ldap.html")},
+  {phase:"enum",cat:"LDAP",tags:["ad"],ports:[389],title:"Enumerate users (RPC)",
+    cmd:"rpcclient -U '' -N {{IP}} -c enumdomusers",note:"List domain users over a null RPC session.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-rpc/")},
+  {phase:"lateral",cat:"LDAP",tags:["ad"],ports:[389],title:"Map the domain (BloodHound)",
+    cmd:"bloodhound-python -d {{DOMAIN}} -u {{USER}} -p {{PASS}} -c all -ns {{DC_IP}}",
+    note:"Collect the AD graph to find attack paths to Domain Admin.",
+    src:{t:"BloodHound",u:"https://bloodhound.specterops.io/"}},
+
+  /* ===== 1433 MSSQL ===== */
+  {phase:"lateral",cat:"MSSQL",tags:["windows","ad"],ports:[1433],title:"Connect",
+    cmd:"impacket-mssqlclient {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}} -windows-auth",note:"Authenticated SQL shell; try enable_xp_cmdshell for exec.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-mssql-microsoft-sql-server/")},
+  {phase:"enum",cat:"MSSQL",tags:["ad"],ports:[1433],title:"Check access (NetExec)",
+    cmd:"netexec mssql {{IP}} -u {{USER}} -p {{PASS}}",note:"Validate creds and privileges against MSSQL.",src:NXC},
+
+  /* ===== 3306 MySQL / 5432 Postgres / 6379 Redis ===== */
+  {phase:"enum",cat:"MySQL",tags:["net"],ports:[3306],title:"Connect",
+    cmd:"mysql -h {{IP}} -u {{USER}} -p",note:"Weak or reused DB creds often open the box.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-mysql.html")},
+  {phase:"enum",cat:"PostgreSQL",tags:["net"],ports:[5432],title:"Connect",
+    cmd:"psql -h {{IP}} -U {{USER}}",note:"Default postgres / postgres is worth a try.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-postgresql.html")},
+  {phase:"enum",cat:"Redis",tags:["net"],ports:[6379],title:"Connect unauthenticated",
+    cmd:"redis-cli -h {{IP}}",note:"Open Redis can leak data or be abused to write files.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-redis.html")},
+
+  /* ===== 3389 RDP ===== */
+  {phase:"lateral",cat:"RDP",tags:["windows"],ports:[3389],title:"Connect",
+    cmd:"xfreerdp /v:{{IP}} /u:{{USER}} /p:{{PASS}} +clipboard",note:"Graphical session once you have valid creds.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-rdp.html")},
+
+  /* ===== 5985 / 5986 WinRM ===== */
+  {phase:"lateral",cat:"WinRM",tags:["ad","windows"],ports:[5985,5986],title:"Shell (Evil-WinRM)",
+    cmd:"evil-winrm -i {{IP}} -u {{USER}} -p {{PASS}}",note:"Interactive shell when the user is in Remote Management Users.",
+    src:{t:"Evil-WinRM",u:"https://github.com/Hackplayers/evil-winrm"}},
+  {phase:"enum",cat:"WinRM",tags:["ad"],ports:[5985,5986],title:"Check access (NetExec)",
+    cmd:"netexec winrm {{IP}} -u {{USER}} -p {{PASS}}",note:"'(Pwn3d!)' means you can get a shell here.",src:NXC},
+
+  /* ===== FOOTHOLD (generic) ===== */
+  {phase:"access",cat:"Finding exploits",tags:["any"],title:"Search public exploits",
+    cmd:"searchsploit <product> <version>",note:"Look up known exploits for a service name and version.",
+    src:{t:"Exploit-DB",u:"https://www.exploit-db.com/searchsploit"}},
+  {phase:"access",cat:"Shells",tags:["any"],title:"Start a listener",
+    cmd:"nc -lvnp {{LPORT}}",note:"Catch an incoming reverse shell.",
+    src:HT("https://book.hacktricks.wiki/en/generic-methodologies-and-resources/shells/linux.html")},
+  {phase:"access",cat:"Shells",tags:["linux"],title:"Upgrade to a full TTY",
+    cmd:"python3 -c 'import pty;pty.spawn(\"/bin/bash\")'",
+    note:"Then Ctrl-Z, stty raw -echo, fg — turns a dumb shell interactive.",
+    src:HT("https://book.hacktricks.wiki/en/generic-methodologies-and-resources/shells/full-ttys.html")},
+  {phase:"access",cat:"Shells",tags:["any"],title:"Reverse shell generator",
+    cmd:"# build one for {{LHOST}}:{{LPORT}} → revshells.com",
+    note:"Reference site that writes a reverse shell in many languages.",
+    src:{t:"revshells.com",u:"https://www.revshells.com/"}},
+
+  /* ===== PRIVESC: LINUX ===== */
+  {phase:"privesc",cat:"Linux",tags:["linux"],title:"Sudo rights",
+    cmd:"sudo -l",note:"What can this user run as root? Check each binary on GTFOBins.",src:GTFO},
+  {phase:"privesc",cat:"Linux",tags:["linux"],title:"SUID binaries",
+    cmd:"find / -perm -4000 -type f 2>/dev/null",note:"Root-owned SUID files; cross-reference GTFOBins.",src:GTFO},
+  {phase:"privesc",cat:"Linux",tags:["linux"],title:"Automated enum (linPEAS)",
+    cmd:"./linpeas.sh",note:"Highlights likely Linux privilege-escalation paths.",src:PEAS},
+  {phase:"privesc",cat:"Linux",tags:["linux"],title:"Capabilities",
+    cmd:"getcap -r / 2>/dev/null",note:"Binaries with capabilities like cap_setuid can grant root.",
+    src:HT("https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/linux-capabilities.html")},
+  {phase:"privesc",cat:"Linux",tags:["linux"],title:"Cron jobs",
+    cmd:"cat /etc/crontab; ls -la /etc/cron.*",note:"Writable scripts run on a schedule as root.",
+    src:HT("https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/")},
+
+  /* ===== PRIVESC: WINDOWS ===== */
+  {phase:"privesc",cat:"Windows",tags:["windows"],title:"Token privileges",
+    cmd:"whoami /priv",note:"SeImpersonate / SeAssignPrimaryToken enable the Potato attacks.",
+    src:HT("https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/")},
+  {phase:"privesc",cat:"Windows",tags:["windows"],title:"Automated enum (winPEAS)",
+    cmd:"winpeas.exe",note:"Highlights likely Windows privilege-escalation paths.",src:PEAS},
+  {phase:"privesc",cat:"Windows",tags:["windows"],title:"OS build for kernel exploits",
+    cmd:"systeminfo",note:"Feed the build number to wesng to match missing patches.",
+    src:{t:"wesng",u:"https://github.com/bitsadmin/wesng"}},
+  {phase:"privesc",cat:"Windows",tags:["windows"],title:"Weak service permissions",
+    cmd:"wmic service get name,pathname,startmode",note:"Unquoted paths and writable service binaries.",
+    src:HT("https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/")},
+  {phase:"privesc",cat:"Windows",tags:["windows"],title:"Stored credentials",
+    cmd:"cmdkey /list",note:"Saved creds can be reused with runas /savecred.",
+    src:HT("https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/")},
+
+  /* ===== WEB ===== */
+  {phase:"web",cat:"Injection",tags:["web"],title:"SQL injection (sqlmap)",
+    cmd:"sqlmap -u \"http://{{IP}}/?id=1\" --batch --dbs",note:"Detect and exploit SQLi, then enumerate databases.",
+    src:{t:"sqlmap",u:"https://github.com/sqlmapproject/sqlmap/wiki"}},
+  {phase:"web",cat:"Injection",tags:["web"],title:"Payload reference",
+    cmd:"# LFI / SSTI / XSS / SQLi → PayloadsAllTheThings",note:"Curated, categorised payloads for almost every web bug class.",
+    src:{t:"PayloadsAllTheThings",u:"https://github.com/swisskyrepo/PayloadsAllTheThings"}},
+  {phase:"web",cat:"Discovery",tags:["web"],title:"Hidden parameters",
+    cmd:"ffuf -u \"http://{{IP}}/?FUZZ=test\" -w {{WORDLIST}} -fs 0",note:"Find undocumented GET/POST parameters.",
+    src:{t:"ffuf",u:"https://github.com/ffuf/ffuf/wiki"}},
+  {phase:"web",cat:"Manual testing",tags:["web"],title:"Intercept & replay",
+    cmd:"# Burp Suite → Proxy → Repeater",note:"The core manual loop: intercept, tamper, resend.",
+    src:{t:"PortSwigger",u:"https://portswigger.net/web-security"}},
+
+  /* ===== MORE SERVICES (common on CTF / HTB) ===== */
+  {phase:"enum",cat:"TFTP",tags:["net"],ports:[69],title:"Grab a file",
+    cmd:"tftp {{IP}} -c get <file>",note:"No auth; pull known filenames (configs, backups).",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/69-udp-tftp.html")},
+  {phase:"enum",cat:"Finger",tags:["net"],ports:[79],title:"User enumeration",
+    cmd:"finger @{{IP}}",note:"Lists valid / logged-in users on old Unix hosts.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-finger.html")},
+  {phase:"enum",cat:"POP3 / IMAP",tags:["net"],ports:[110,143],title:"Read mail",
+    cmd:"nc {{IP}} 110   # USER {{USER}} / PASS {{PASS}}",note:"Mailboxes often hold creds and hints.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-pop.html")},
+  {phase:"enum",cat:"rsync",tags:["net"],ports:[873],title:"List modules",
+    cmd:"rsync -av rsync://{{IP}}/",note:"Open rsync shares can expose or receive files.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/873-pentesting-rsync.html")},
+  {phase:"enum",cat:"Oracle DB",tags:["net"],ports:[1521],title:"Enumerate (odat)",
+    cmd:"odat all -s {{IP}}",note:"SID guessing, cred checks and privilege enumeration for Oracle.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/1521-1522-1529-pentesting-oracle-listener/")},
+  {phase:"lateral",cat:"Docker API",tags:["linux"],ports:[2375],title:"Exposed daemon",
+    cmd:"docker -H {{IP}}:2375 ps",note:"An open Docker socket is usually root on the host.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/2375-pentesting-docker.html")},
+  {phase:"enum",cat:"Grafana",tags:["web"],ports:[3000],title:"Default login",
+    cmd:"# browse http://{{IP}}:3000  (admin / admin)",note:"Try default creds; check the version for known CVEs.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/3000-pentesting-grafana.html")},
+  {phase:"enum",cat:"VNC",tags:["net"],ports:[5900],title:"Connect",
+    cmd:"vncviewer {{IP}}:5900",note:"Often weak / no auth; hydra -s 5900 for brute.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-vnc.html")},
+  {phase:"enum",cat:"Splunk",tags:["web"],ports:[8089],title:"Management API",
+    cmd:"curl -sk https://{{IP}}:8089/services/server/info -u {{USER}}:{{PASS}}",
+    note:"Splunkd REST API; check the version and default creds.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/8089-splunkd.html")},
+  {phase:"enum",cat:"Elasticsearch",tags:["web"],ports:[9200],title:"List indices",
+    cmd:"curl http://{{IP}}:9200/_cat/indices",note:"Unauthenticated ES exposes all stored data.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/9200-pentesting-elasticsearch.html")},
+  {phase:"enum",cat:"Webmin",tags:["web"],ports:[10000],title:"Login page",
+    cmd:"# browse https://{{IP}}:10000",note:"Check the version for well-known Webmin CVEs.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/")},
+  {phase:"enum",cat:"Memcached",tags:["net"],ports:[11211],title:"Dump stats",
+    cmd:"nc {{IP}} 11211   # then: stats",note:"Unauth memcached can leak cached data.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/11211-memcache/")},
+  {phase:"enum",cat:"MongoDB",tags:["net"],ports:[27017],title:"Connect",
+    cmd:"mongosh mongodb://{{IP}}:27017",note:"No-auth Mongo exposes every database.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/27017-27018-mongodb.html")},
+
+  /* ===== POST / LOOT ===== */
+  {phase:"post",cat:"Looting",tags:["linux","windows"],title:"Hunt for credentials",
+    cmd:"grep -rniE 'password|secret|api[_-]?key' . 2>/dev/null",note:"Config files, histories and source often hold reusable creds.",
+    src:HT("https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/")},
+  {phase:"post",cat:"Looting",tags:["linux"],title:"Reusable SSH keys",
+    cmd:"cat ~/.ssh/id_rsa",note:"Private keys let you move laterally to other hosts.",
+    src:HT("https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ssh.html")},
+  {phase:"post",cat:"Looting",tags:["any"],title:"History & environment",
+    cmd:"history; env",note:"Commands and variables sometimes expose passwords or tokens.",
+    src:HT("https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/")}
+];
+
+const OS_FILTERS = [
+  {k:"all",label:"All"},{k:"linux",label:"Linux"},{k:"windows",label:"Windows"},
+  {k:"ad",label:"Active Directory"},{k:"web",label:"Web"},{k:"net",label:"Network"}
+];
+
+/* ---------------- state + storage ---------------- */
+const LS = {
+  get(k,f){ try{ const v=localStorage.getItem(k); return v==null?f:JSON.parse(v); }catch(e){ return f; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+};
+let vars  = LS.get("pp_vars",{});
+let done  = new Set(LS.get("pp_done",[]));
+let mode  = LS.get("pp_mode","play");
+let phase = LS.get("pp_phase","recon");
+let port  = LS.get("pp_port",null);
+let osf   = "all";
+let query = "";
+let scan  = null; // {ports:[{port,service,product}], ip}
+let focus = LS.get("pp_focus",false);
+const _u  = LS.get("pp_user",{});
+let custom = Array.isArray(_u.custom)? _u.custom : [];
+let notes  = (_u.notes&&typeof _u.notes==="object")? _u.notes : {};
+
+let POOL=[], ALL_PORTS=[];
+function saveUser(){ LS.set("pp_user",{custom,notes}); }
+function rebuild(){
+  DATA.forEach((e,i)=>e.id="e"+i);
+  custom.forEach((e,i)=>{ e.id=e.id||("c"+i+"_"+(e._t||Date.now())); e.custom=true; });
+  POOL=DATA.concat(custom);
+  ALL_PORTS=[...new Set(POOL.flatMap(e=>e.ports||[]))].sort((a,b)=>a-b);
+}
+rebuild();
+
+const $ = s => document.querySelector(s);
+const main = $("#main");
+
+/* ---------------- target variables ---------------- */
+function buildVars(){
+  const body=$("#varsBody");
+  VARS.forEach(v=>{
+    const f=document.createElement("label"); f.className="field";
+    const lab=document.createElement("label"); lab.textContent=v.k; lab.setAttribute("for","var_"+v.k);
+    const inp=document.createElement("input"); inp.id="var_"+v.k; inp.value=vars[v.k]||"";
+    inp.placeholder=v.ph; inp.autocomplete="off"; inp.spellcheck=false;
+    inp.addEventListener("input",()=>{ vars[v.k]=inp.value.trim(); LS.set("pp_vars",vars); render(); });
+    f.append(lab,inp); body.append(f);
+  });
+}
+function setVar(k,val){ vars[k]=val; LS.set("pp_vars",vars); const i=$("#var_"+k); if(i) i.value=val; render(); }
+
+/* ---------------- command rendering ---------------- */
+function cmdNodes(cmd){
+  const frag=document.createDocumentFragment(); const re=/\{\{(\w+)\}\}/g; let last=0,m;
+  while((m=re.exec(cmd))){
+    if(m.index>last) frag.append(document.createTextNode(cmd.slice(last,m.index)));
+    const val=vars[m[1]]; const s=document.createElement("span");
+    if(val){ s.className="val"; s.textContent=val; } else { s.className="ph"; s.textContent="{{"+m[1]+"}}"; }
+    frag.append(s); last=re.lastIndex;
+  }
+  if(last<cmd.length) frag.append(document.createTextNode(cmd.slice(last)));
+  return frag;
+}
+const resolve = cmd => cmd.replace(/\{\{(\w+)\}\}/g,(_,n)=>vars[n]||("{{"+n+"}}"));
+
+const ICON={
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+  copy :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+  link :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/></svg>',
+  note :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6"/></svg>'
+};
+
+function card(e,showPorts){
+  const hue=(PHASES.find(p=>p.id===e.phase)||{}).hue||"var(--border)";
+  const el=document.createElement("article"); el.className="card"+(done.has(e.id)?" done":""); el.style.setProperty("--ph",hue);
+  const top=document.createElement("div"); top.className="card-top";
+  const chk=document.createElement("button"); chk.className="chk"; chk.innerHTML=ICON.check;
+  chk.setAttribute("aria-label","Mark done"); chk.setAttribute("aria-pressed",done.has(e.id));
+  chk.onclick=()=>{ done.has(e.id)?done.delete(e.id):done.add(e.id); LS.set("pp_done",[...done]); render(); };
+  const head=document.createElement("div"); head.className="card-head";
+  const t=document.createElement("div"); t.className="card-title"; t.textContent=e.title;
+  if(e.custom){ const bd=document.createElement("span"); bd.className="badge-custom"; bd.textContent="custom"; t.append(bd); }
+  const n=document.createElement("div"); n.className="card-note"; n.textContent=e.note;
+  head.append(t,n);
+  if(showPorts&&e.ports){ const pr=document.createElement("div"); pr.className="card-ports";
+    e.ports.forEach(p=>{ const s=document.createElement("span"); s.className="tag";
+      s.textContent=p+" "+(SERVICES[p]||""); pr.append(s); }); head.append(pr); }
+  top.append(chk,head);
+  const cmd=document.createElement("div"); cmd.className="cmd";
+  const code=document.createElement("code"); code.append(cmdNodes(e.cmd));
+  const copy=document.createElement("button"); copy.className="copy"; copy.innerHTML=ICON.copy+"<span>Copy</span>";
+  copy.onclick=()=>doCopy(resolve(e.cmd),copy);
+  cmd.append(code,copy); el.append(top,cmd);
+
+  // note area
+  const noteBox=document.createElement("div"); noteBox.className="note-area"; noteBox.hidden=!notes[e.id];
+  const ta=document.createElement("textarea"); ta.value=notes[e.id]||""; ta.placeholder="Your note — payloads, creds, what worked…";
+  ta.addEventListener("input",()=>{ if(ta.value.trim()){ notes[e.id]=ta.value; } else { delete notes[e.id]; }
+    saveUser(); nbtn.classList.toggle("on",!!notes[e.id]);
+    nbtn.querySelector(".dot")?.remove(); if(notes[e.id]){ const d=document.createElement("span"); d.className="dot"; nbtn.prepend(d); } });
+  noteBox.append(ta); el.append(noteBox);
+
+  // footer: source + note + delete
+  const foot=document.createElement("div"); foot.className="card-foot";
+  if(e.src){ const a=document.createElement("a"); a.href=e.src.u; a.target="_blank"; a.rel="noopener noreferrer";
+    a.innerHTML=ICON.link+"<span>"+esc(e.src.t)+"</span>"; foot.append(a); }
+  const fsp=document.createElement("span"); fsp.className="fsp"; foot.append(fsp);
+  var nbtn=document.createElement("button"); nbtn.className="foot-btn"+(notes[e.id]?" on":"");
+  nbtn.innerHTML=(notes[e.id]?'<span class="dot"></span>':"")+ICON.note+"<span>Note</span>";
+  nbtn.onclick=()=>{ noteBox.hidden=!noteBox.hidden; if(!noteBox.hidden) ta.focus(); };
+  foot.append(nbtn);
+  if(e.custom){ const del=document.createElement("button"); del.className="foot-btn"; del.innerHTML=ICON.trash+"<span>Delete</span>";
+    del.onclick=()=>{ custom=custom.filter(x=>x.id!==e.id); delete notes[e.id]; done.delete(e.id);
+      LS.set("pp_done",[...done]); saveUser(); rebuild(); render(); toast("Command deleted"); };
+    foot.append(del); }
+  el.append(foot);
+  return el;
+}
+
+/* ---------------- filtering ---------------- */
+function osOk(e){ return osf==="all"||e.tags.includes(osf)||e.tags.includes("any"); }
+function focusOk(e){ return !focus||!done.has(e.id); }
+function qOk(e){ if(!query) return true; const q=query.toLowerCase();
+  return (e.title+" "+e.note+" "+e.cmd+" "+e.tags.join(" ")+" "+e.cat).toLowerCase().includes(q); }
+
+/* ---------------- render ---------------- */
+function render(){
+  $("#progress").innerHTML="<b>"+done.size+"</b> / "+POOL.length+" done";
+  $("#focusTgl").setAttribute("aria-pressed",focus);
+  // mode switch state
+  document.querySelectorAll(".mode").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mode===mode));
+  $("#vars").hidden = mode==="scan"? false : false; // vars always visible
+  $("#scanPanel").hidden = mode!=="scan";
+  $("#phases").hidden = mode!=="play" || !!query;
+  $("#portTiles").hidden = mode!=="port" || !!query;
+
+  if(mode==="play") buildPhaseNav();
+  if(mode==="port") buildPortNav();
+
+  main.innerHTML="";
+  if(query){ renderSearch(); return; }
+  if(mode==="play") renderPlay();
+  else if(mode==="port") renderPort();
+  else renderScan();
+}
+
+function buildPhaseNav(){
+  const nav=$("#phases"); nav.innerHTML="";
+  PHASES.forEach(p=>{
+    const n=POOL.filter(e=>e.phase===p.id).length;
+    const b=document.createElement("button"); b.className="phase-tab"; b.style.setProperty("--ph",p.hue);
+    b.setAttribute("aria-pressed",phase===p.id);
+    b.innerHTML='<span class="dot"></span>'+p.label+' <span class="n">'+n+'</span>';
+    b.onclick=()=>{ phase=p.id; LS.set("pp_phase",phase); render(); };
+    nav.append(b);
+  });
+}
+function buildPortNav(){
+  const nav=$("#portTiles"); nav.innerHTML="";
+  if(port==null||!ALL_PORTS.includes(port)) port=ALL_PORTS[0];
+  ALL_PORTS.forEach(p=>{
+    const b=document.createElement("button"); b.className="port-tile"; b.setAttribute("aria-pressed",port===p);
+    b.innerHTML='<span class="pnum">'+p+'</span><span class="psvc">'+(SERVICES[p]||"")+'</span>';
+    b.onclick=()=>{ port=p; LS.set("pp_port",port); render(); };
+    nav.append(b);
+  });
+}
+
+function renderPlay(){
+  const items=POOL.filter(e=>e.phase===phase&&osOk(e)&&focusOk(e));
+  if(!items.length){ main.innerHTML=emptyMsg(); return; }
+  const hue=(PHASES.find(p=>p.id===phase)||{}).hue;
+  const cats=[]; items.forEach(e=>{ if(!cats.includes(e.cat)) cats.push(e.cat); });
+  cats.forEach(c=>{
+    const g=document.createElement("section"); g.className="catgroup"; g.style.setProperty("--ph",hue);
+    const inC=items.filter(e=>e.cat===c);
+    const h=document.createElement("div"); h.className="cat-h";
+    h.innerHTML='<span class="bar"></span><h3>'+esc(c)+'</h3>'; h.append(copyAll(inC)); g.append(h);
+    inC.forEach(e=>g.append(card(e,false))); main.append(g);
+  });
+}
+
+function renderPort(){
+  const items=POOL.filter(e=>(e.ports||[]).includes(port)&&osOk(e)&&focusOk(e));
+  const h=document.createElement("div"); h.className="phase-head";
+  h.innerHTML='<h2>'+port+' &middot; '+(SERVICES[port]||"service")+'</h2><span class="pn">'+items.length+' commands</span>';
+  if(items.length) h.append(copyAll(items));
+  main.append(h);
+  if(!items.length){ main.insertAdjacentHTML("beforeend",emptyMsg()); return; }
+  items.forEach(e=>main.append(card(e,false)));
+}
+
+function renderScan(){
+  if(!scan){ main.innerHTML='<div class="empty">Paste an Nmap scan above and hit <b>Parse scan</b> to see commands for every open port.</div>'; return; }
+  const have=scan.ports.filter(sp=>POOL.some(e=>(e.ports||[]).includes(sp.port)));
+  const none=scan.ports.filter(sp=>!POOL.some(e=>(e.ports||[]).includes(sp.port)));
+  if(!scan.ports.length){ main.innerHTML='<div class="empty">No open ports found in that text. Paste the lines that look like <b>445/tcp open ...</b></div>'; return; }
+  have.forEach(sp=>{
+    const items=POOL.filter(e=>(e.ports||[]).includes(sp.port)&&osOk(e)&&focusOk(e));
+    if(!items.length) return;
+    const h=document.createElement("div"); h.className="phase-head";
+    const prod=sp.product?' <span class="pn">'+esc(sp.product)+'</span>':'';
+    h.innerHTML='<h2>'+sp.port+' &middot; '+(SERVICES[sp.port]||sp.service||"")+'</h2>'+prod;
+    h.append(copyAll(items)); main.append(h);
+    items.forEach(e=>main.append(card(e,false)));
+  });
+  if(none.length){
+    const box=document.createElement("div"); box.className="catgroup";
+    const h=document.createElement("div"); h.className="cat-h";
+    h.innerHTML='<span class="bar" style="background:var(--muted)"></span><h3>Open, not covered yet</h3>'; box.append(h);
+    const p=document.createElement("p"); p.className="hint-sm"; p.style.margin="0 0 10px";
+    p.textContent="Record what you used on these and the playbook grows with you.";
+    box.append(p);
+    none.forEach(sp=>{
+      const row=document.createElement("div"); row.className="card";
+      row.style.cssText="--ph:var(--muted);display:flex;align-items:center;gap:10px";
+      const lab=document.createElement("div"); lab.style.flex="1";
+      lab.innerHTML='<span class="tag">'+sp.port+'</span> <b>'+esc(sp.service||SERVICES[sp.port]||"unknown")+'</b>'+
+        (sp.product?' &middot; <span class="card-note" style="display:inline">'+esc(sp.product)+'</span>':'');
+      const add=document.createElement("button"); add.className="btn ghost"; add.style.padding="6px 12px";
+      add.textContent="Add commands";
+      add.onclick=()=>openAdd({port:sp.port,cat:(SERVICES[sp.port]||sp.service||""),src:htGuess(sp.port),
+        title:"Enumerate "+(sp.service||SERVICES[sp.port]||("port "+sp.port)),
+        cmd:"nmap -sCV -p"+sp.port+" {{IP}}",
+        note:"Starting point — replace with the command you actually used."});
+      row.append(lab,add); box.append(row);
+    });
+    main.append(box);
+  }
+}
+
+function renderSearch(){
+  const pool=POOL.filter(e=>osOk(e)&&focusOk(e)&&qOk(e));
+  if(!pool.length){ main.innerHTML='<div class="empty">No commands match &ldquo;'+esc(query)+'&rdquo;.</div>'; return; }
+  PHASES.forEach(p=>{
+    const items=pool.filter(e=>e.phase===p.id); if(!items.length) return;
+    const h=document.createElement("div"); h.className="phase-head";
+    h.innerHTML='<h2>'+p.label+'</h2><span class="pn">'+items.length+'</span>'; h.append(copyAll(items)); main.append(h);
+    items.forEach(e=>main.append(card(e,true)));
+  });
+}
+function emptyMsg(){ return focus
+  ? '<div class="empty">Nothing unchecked here. Turn off <b>Unchecked only</b> to see the rest.</div>'
+  : '<div class="empty">Nothing here for this filter.</div>'; }
+function copyAll(items){
+  const b=document.createElement("button"); b.className="copy-all";
+  b.innerHTML=ICON.copy+"<span>Copy all</span>";
+  b.onclick=()=>{ const txt=items.map(e=>resolve(e.cmd)).join("\n");
+    doCopy(txt,b); toast("Copied "+items.length+" commands"); };
+  return b;
+}
+
+function esc(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+
+/* ---------------- detect: nmap lines, banners, bare ports, service names ---------------- */
+const SERVICE_ALIASES={ftp:21,ssh:22,smtp:25,dns:53,domain:53,http:80,https:443,ssl:443,
+  kerberos:88,"kerberos-sec":88,pop3:110,nfs:111,rpcbind:111,msrpc:135,netbios:139,"netbios-ssn":139,
+  imap:143,snmp:161,ldap:389,"microsoft-ds":445,smb:445,ldaps:636,mssql:1433,"ms-sql-s":1433,
+  "global catalog":3268,mysql:3306,rdp:3389,"ms-wbt-server":3389,postgres:5432,postgresql:5432,
+  winrm:5985,wsman:5985,redis:6379,tftp:69,finger:79,rsync:873,oracle:1521,"oracle-tns":1521,
+  docker:2375,grafana:3000,vnc:5900,"http-proxy":8080,"http-alt":8080,splunk:8089,splunkd:8089,
+  elasticsearch:9200,webmin:10000,memcached:11211,memcache:11211,mongodb:27017,mongo:27017};
+function detect(text){
+  const out=new Map();
+  const re=/^\s*(\d{1,5})\/(tcp|udp)\s+open\s+(\S+)(?:\s+(.*))?$/gim; let m;
+  while((m=re.exec(text))){ const p=+m[1]; if(!out.has(p)) out.set(p,{port:p,proto:m[2],service:m[3],product:(m[4]||"").trim()}); }
+  if(out.size===0){
+    // "<port> <service?>" pairs and bare port numbers (keep unknown ports so they can be added)
+    const bre=/\b(\d{1,5})\b(?:[\/\s]+(?:tcp|udp)\b)?(?:\s+([a-z][a-z0-9_.\/-]{1,24}))?/gi; let b;
+    while((b=bre.exec(text))){ const p=+b[1]; if(p<1||p>65535) continue;
+      if(!out.has(p)) out.set(p,{port:p,service:(b[2]||SERVICES[p]||"").toLowerCase(),product:""}); }
+    const low=" "+text.toLowerCase()+" ";
+    Object.keys(SERVICE_ALIASES).forEach(name=>{ if(low.includes(name)){ const p=SERVICE_ALIASES[name]; if(!out.has(p)) out.set(p,{port:p,service:name,product:""}); } });
+  }
+  const ports=[...out.values()].sort((a,b)=>a.port-b.port);
+  let ip=null; const im=text.match(/(?:scan report for|for)\s+(?:[\w.-]+\s+\()?(\d{1,3}(?:\.\d{1,3}){3})\)?/i);
+  if(im) ip=im[1];
+  return {ports,ip};
+}
+function doParse(){
+  const text=$("#scanInput").value;
+  scan=detect(text);
+  const d=$("#detected"); d.innerHTML="";
+  if(!scan.ports.length){ d.textContent="No open ports found."; render(); return; }
+  d.append(document.createTextNode(scan.ports.length+" open ports"));
+  if(scan.ip){
+    const span=document.createElement("span"); span.className="ipfound"; span.textContent=" · "+scan.ip;
+    d.append(span);
+    if(vars.IP!==scan.ip){
+      const b=document.createElement("button"); b.className="btn ghost"; b.style.padding="4px 10px";
+      b.textContent="Use as target"; b.onclick=()=>{ setVar("IP",scan.ip);
+        if(!vars.DC_IP) setVar("DC_IP",scan.ip); b.textContent="✓ set"; };
+      d.append(b);
+    }
+  }
+  render();
+}
+
+/* ---------------- copy ---------------- */
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1400); }
+function doCopy(text,btn){
+  const ok=()=>{ const s=btn.querySelector("span"); const o=s.textContent; s.textContent="Copied";
+    toast("Copied to clipboard"); setTimeout(()=>s.textContent=o,1200); };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok).catch(()=>fb(text,ok));
+  else fb(text,ok);
+}
+function fb(text,ok){ const ta=document.createElement("textarea"); ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.append(ta); ta.select(); try{ document.execCommand("copy"); ok(); }catch(e){ toast("Press Ctrl+C to copy"); } ta.remove(); }
+
+/* ---------------- chips ---------------- */
+function buildChips(){
+  const c=$("#osChips");
+  OS_FILTERS.forEach(f=>{
+    const b=document.createElement("button"); b.className="chip"; b.textContent=f.label; b.setAttribute("aria-pressed",osf===f.k);
+    b.onclick=()=>{ osf=f.k; [...c.children].forEach(x=>x.setAttribute("aria-pressed","false"));
+      b.setAttribute("aria-pressed","true"); render(); };
+    c.append(b);
+  });
+}
+
+/* ---------------- wiring ---------------- */
+document.querySelectorAll(".mode").forEach(b=> b.onclick=()=>{ mode=b.dataset.mode; LS.set("pp_mode",mode);
+  if(query){ query=""; $("#search").value=""; } render(); });
+$("#parseBtn").onclick=doParse;
+$("#scanClear").onclick=()=>{ $("#scanInput").value=""; scan=null; $("#detected").innerHTML=""; render(); };
+$("#search").addEventListener("input",e=>{ query=e.target.value.trim(); render(); });
+document.addEventListener("keydown",e=>{
+  const typing=/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if(e.key==="/"&&!typing){ e.preventDefault(); $("#search").focus(); }
+  if((e.key==="k"||e.key==="K")&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); $("#search").focus(); }
+  if(e.key==="Escape"&&document.activeElement===$("#search")){ $("#search").value=""; query=""; render(); }
+});
+$("#reset").onclick=()=>{ done.clear(); LS.set("pp_done",[]); render(); toast("Progress reset"); };
+
+const vBox=$("#vars"),vToggle=$("#varsToggle");
+vBox.dataset.open=LS.get("pp_varsopen",true); vToggle.setAttribute("aria-expanded",vBox.dataset.open);
+vToggle.onclick=()=>{ const o=vBox.dataset.open!=="true"; vBox.dataset.open=o; vToggle.setAttribute("aria-expanded",o); LS.set("pp_varsopen",o); };
+
+const themeBtn=$("#theme"); let theme=LS.get("pp_theme",null);
+if(theme) document.documentElement.setAttribute("data-theme",theme);
+themeBtn.onclick=()=>{ const cur=document.documentElement.getAttribute("data-theme");
+  const dark=cur? cur==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  theme=dark?"light":"dark"; document.documentElement.setAttribute("data-theme",theme); LS.set("pp_theme",theme); };
+
+/* focus + overlays + add/data */
+function openOv(id){ $("#"+id).hidden=false; }
+function closeOv(id){ $("#"+id).hidden=true; }
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>closeOv(b.dataset.close));
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{ if(e.target===o) o.hidden=true; }));
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.querySelectorAll(".overlay").forEach(o=>o.hidden=true); });
+
+$("#focusTgl").onclick=()=>{ focus=!focus; LS.set("pp_focus",focus); render(); };
+
+(function initAdd(){
+  const sel=$("#af-phase"); PHASES.forEach(p=>{ const o=document.createElement("option"); o.value=p.id; o.textContent=p.label; sel.append(o); });
+  const tp=$("#af-tags"); ["linux","windows","ad","web","net","any"].forEach(t=>{
+    const l=document.createElement("label"); const c=document.createElement("input"); c.type="checkbox"; c.value=t;
+    l.append(c,document.createTextNode(t)); tp.append(l); });
+})();
+const HT_SLUG={21:"pentesting-ftp",22:"pentesting-ssh.html",25:"pentesting-smtp",53:"pentesting-dns.html",
+  80:"pentesting-web",110:"pentesting-pop",111:"nfs-service-pentesting.html",135:"pentesting-rpc",139:"pentesting-smb",
+  143:"pentesting-imap.html",161:"pentesting-snmp",389:"pentesting-ldap.html",443:"pentesting-web",445:"pentesting-smb",
+  636:"pentesting-ldap.html",1433:"pentesting-mssql-microsoft-sql-server",3306:"pentesting-mysql.html",
+  3389:"pentesting-rdp.html",5432:"pentesting-postgresql.html",5985:"pentesting-winrm.html",6379:"pentesting-redis.html"};
+function htGuess(p){ const s=HT_SLUG[p];
+  return s? "https://book.hacktricks.wiki/en/network-services-pentesting/"+s : "https://book.hacktricks.wiki/"; }
+function openAdd(pre){ pre=pre||{};
+  $("#af-phase").value = pre.phase || (mode==="play"?phase:"enum");
+  $("#af-cat").value   = pre.cat || "";
+  $("#af-title").value = pre.title || "";
+  $("#af-cmd").value   = pre.cmd || "";
+  $("#af-note").value  = pre.note || "";
+  $("#af-ports").value = pre.port? String(pre.port) : "";
+  $("#af-src").value   = pre.src || "";
+  openOv("addOverlay"); $("#af-title").focus();
+}
+$("#addBtn").onclick=()=>openAdd();
+$("#af-save").onclick=()=>{
+  const title=$("#af-title").value.trim(), cmd=$("#af-cmd").value.trim();
+  if(!title||!cmd){ toast("Title and command are required"); return; }
+  const tags=[...$("#af-tags").querySelectorAll("input:checked")].map(c=>c.value);
+  const ports=$("#af-ports").value.split(/[^\d]+/).map(Number).filter(Boolean);
+  const url=$("#af-src").value.trim(); let src=null;
+  if(url){ try{ src={t:new URL(url).hostname.replace(/^www\./,""),u:url}; }catch(_){ src={t:"source",u:url}; } }
+  const e={ phase:$("#af-phase").value, cat:($("#af-cat").value.trim()||"Custom"),
+    tags:tags.length?tags:["any"], ports:ports.length?ports:undefined,
+    title, cmd, note:$("#af-note").value.trim(), src, custom:true, _t:Date.now() };
+  custom.push(e); saveUser(); rebuild();
+  ["af-cat","af-title","af-cmd","af-note","af-ports","af-src"].forEach(id=>$("#"+id).value="");
+  $("#af-tags").querySelectorAll("input:checked").forEach(c=>c.checked=false);
+  closeOv("addOverlay");
+  if(ports.length&&mode==="port"){ port=ports[0]; LS.set("pp_port",port); }
+  render(); toast("Command added");
+};
+
+$("#dataBtn").onclick=()=>{ $("#dx-out").value=JSON.stringify({v:1,custom,notes,done:[...done],vars},null,2);
+  $("#dx-in").value=""; openOv("dataOverlay"); };
+$("#dx-copy").onclick=()=>doCopy($("#dx-out").value,$("#dx-copy"));
+$("#dx-import").onclick=()=>{
+  let d; try{ d=JSON.parse($("#dx-in").value); }catch(_){ toast("That is not valid JSON"); return; }
+  if(Array.isArray(d.custom)){ const ids=new Set(custom.map(x=>x.id));
+    d.custom.forEach(x=>{ if(!x.id||!ids.has(x.id)){ x.custom=true; custom.push(x); } }); }
+  if(d.notes&&typeof d.notes==="object") Object.assign(notes,d.notes);
+  if(Array.isArray(d.done)) d.done.forEach(x=>done.add(x));
+  if(d.vars&&typeof d.vars==="object"){ Object.assign(vars,d.vars);
+    VARS.forEach(v=>{ const i=$("#var_"+v.k); if(i) i.value=vars[v.k]||""; }); }
+  LS.set("pp_done",[...done]); LS.set("pp_vars",vars); saveUser(); rebuild();
+  closeOv("dataOverlay"); render(); toast("Imported");
+};
+
+buildVars(); buildChips(); render();
+</script>
