@@ -81,7 +81,8 @@ docker compose up --build
 Manifests in [`k8s/`](k8s): a namespace with Pod Security `restricted`, Oracle as a StatefulSet with a volume, the API as a 2-replica Deployment with health probes and a read-only root filesystem, and default-deny network policies that only let the API reach the database. CI publishes the image to `ghcr.io/miracaral/foothold-api` on every push to `main`.
 
 ```bash
-cp k8s/01-secret.example.yaml k8s/01-secret.yaml   # set real passwords
+cp k8s/examples/secret.example.yaml k8s/01-secret.yaml
+sed -i "s/change-me-system/Fh$(openssl rand -hex 16)/; s/change-me-app/Fh$(openssl rand -hex 16)/" k8s/01-secret.yaml
 kubectl apply -f k8s/
 ```
 
