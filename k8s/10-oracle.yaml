@@ -37,7 +37,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: oracle
-          image: gvenzl/oracle-free:23-slim-faststart
+          # Not the -faststart tag: it ships ready-made data files in /opt/oracle/oradata,
+          # which the volume below would hide (ORA-00205). This image creates them in the volume.
+          image: gvenzl/oracle-free:23-slim
           ports:
             - containerPort: 1521
           envFrom:
@@ -46,14 +48,15 @@ spec:
           readinessProbe:
             exec:
               command: ["healthcheck.sh"]
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 60
           resources:
             requests:
               cpu: 500m
-              memory: 1536Mi
-            limits:
               memory: 2Gi
+            limits:
+              memory: 3Gi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
