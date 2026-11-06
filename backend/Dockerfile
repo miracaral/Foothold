@@ -8,6 +8,10 @@ RUN mvn -B -ntp -DskipTests package
 
 # Runtime stage: JRE only, non-root user.
 FROM eclipse-temurin:17-jre
+LABEL org.opencontainers.image.title="foothold-api" \
+      org.opencontainers.image.description="Java 17 / Micronaut REST API for Foothold: command catalogue, Nmap scan parsing and per-user workspaces on Oracle Database." \
+      org.opencontainers.image.source="https://github.com/miracaral/Foothold" \
+      org.opencontainers.image.licenses="MIT"
 RUN useradd --system --uid 10001 --no-create-home app
 WORKDIR /app
 COPY --from=build /src/target/foothold-api.jar foothold-api.jar
