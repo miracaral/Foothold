@@ -78,6 +78,8 @@ docker compose up --build
 
 ### Deploy to Kubernetes
 
+Running on my homelab K3s cluster since 6 November 2026: see the [deployment record](docs/deployment.md) for the pods, an end-to-end check through the cluster service, and the problems fixed along the way.
+
 Manifests in [`k8s/`](k8s): a namespace with Pod Security `restricted`, Oracle as a StatefulSet with a volume, the API as a 2-replica Deployment with health probes and a read-only root filesystem, and default-deny network policies that only let the API reach the database. CI publishes the image to `ghcr.io/miracaral/foothold-api` on every push to `main`.
 
 ```bash
