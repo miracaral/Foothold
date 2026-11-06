@@ -70,6 +70,8 @@ class ApiIntegrationTest implements TestPropertyProvider {
     void healthReportsUpIncludingTheDatabase() {
         String body = http().retrieve("/health");
         assertTrue(body.contains("\"status\":\"UP\""), body);
+        assertFalse(body.contains("Oracle"), "health must not reveal the database version: " + body);
+        assertFalse(body.contains("diskSpace"), body);
     }
 
     // ---------- catalogue ----------
