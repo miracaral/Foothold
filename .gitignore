@@ -2,3 +2,4 @@
 node_modules/
 test-results/
 backend/target/
+k8s/01-secret.yaml
