@@ -1,8 +1,10 @@
 # Foothold
 
+[![CI](https://github.com/miracaral/Foothold/actions/workflows/ci.yml/badge.svg)](https://github.com/miracaral/Foothold/actions/workflows/ci.yml)
+
 A single-page methodology reference for CTFs and lab pentesting. Set your target once and every command fills itself in — then work the engagement by phase, jump straight to a service by port, or paste an Nmap scan and get the commands for exactly what is open.
 
-No build step, no backend, no database. It is one self-contained `index.html` that runs entirely in the browser.
+No build step, no backend, no database. It is a static page (`index.html` plus two plain scripts) that runs entirely in the browser, even straight from disk.
 
 ## Why
 
@@ -21,7 +23,7 @@ Every box starts the same way: a dozen tools, the same flags, the same `<IP>` ty
 
 ## Run it
 
-Open `index.html` in a browser. That's it.
+Open `index.html` in a browser. That's it — no server or install needed.
 
 ### Deploy
 
@@ -32,7 +34,7 @@ It is a static page, so any static host works:
 
 ## Extend
 
-Every card is one object in the `DATA` array near the top of the script:
+Every card is one object in the `DATA` array in [`js/data.js`](js/data.js):
 
 ```js
 { phase:"lateral", cat:"Active Directory", tags:["ad"], ports:[445],
@@ -43,6 +45,32 @@ Every card is one object in the `DATA` array near the top of the script:
 ```
 
 Any `{{TOKEN}}` in a command becomes a target field automatically. Add a new service by giving it a `ports` array and, if you want a tile for it, a label in `SERVICES`.
+
+## Project layout
+
+```
+index.html        UI: markup, styles and DOM wiring
+js/data.js        command catalogue, target fields, service and port tables
+js/core.js        pure logic: templating, Nmap parsing, filtering, input validation, backup import
+test/             unit tests for js/core.js and integrity tests for the catalogue
+test/e2e/         browser tests that open index.html from disk in headless Chromium
+```
+
+The logic in `js/core.js` has no DOM or storage access, so it runs unchanged in the browser and in Node. Both scripts load as classic `<script>` tags, which keeps the page working when opened via `file://`.
+
+## Tests
+
+```bash
+npm test               # unit + catalogue tests (Node's built-in test runner, no dependencies)
+npm ci && npx playwright install chromium
+npm run test:e2e       # end-to-end tests in headless Chromium
+```
+
+- **Unit tests** cover `{{TOKEN}}` templating, the Nmap parser (version columns, filtered ports, bare port lists, service names, invalid ports and IPs), search and OS filters, input validation and backup merging.
+- **Catalogue tests** check every built-in command: known phase and tags, valid ports that have a service name, every `{{TOKEN}}` defined as a target field, an https source and no duplicates. A bad edit to `js/data.js` fails CI instead of shipping.
+- **End-to-end tests** load the page with all network access blocked and drive it like a user: set a target and reload, paste a scan, import a backup with broken entries, search and filter.
+
+GitHub Actions runs the unit tests on Node 20 and 22 and then the browser tests on every push and pull request.
 
 ## Scope
 
