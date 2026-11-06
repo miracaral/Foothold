@@ -381,12 +381,20 @@ footer{color:var(--muted);font-size:.78rem;padding-block:6px 30px;border-top:1px
       <button class="x" data-close="dataOverlay" aria-label="Close">&times;</button>
     </div>
     <div class="panel-body">
-      <p class="hint-sm">Everything lives in this browser. Copy this to back it up or move it to another device; paste it below and import to restore.</p>
+      <p class="hint-sm">Everything lives in this browser. Copy this to back it up or move it to another device and paste it below to restore, or save it to a Foothold API server.</p>
       <div class="pf"><label for="dx-out">Export</label>
         <textarea id="dx-out" readonly spellcheck="false"></textarea></div>
       <button class="btn ghost" id="dx-copy" style="align-self:flex-start">Copy export</button>
       <div class="pf"><label for="dx-in">Import</label>
         <textarea id="dx-in" spellcheck="false" placeholder="Paste exported data here"></textarea></div>
+      <div class="pf"><label for="dx-api">Sync with a Foothold API server (optional)</label>
+        <input id="dx-api" spellcheck="false" autocomplete="off" placeholder="http://localhost:8080"></div>
+      <div class="pf"><label for="dx-ws">Workspace id</label>
+        <input id="dx-ws" spellcheck="false" autocomplete="off" placeholder="Filled in when you save; paste one to load"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn ghost" id="dx-save">Save to server</button>
+        <button class="btn ghost" id="dx-load">Load from server</button>
+      </div>
     </div>
     <div class="panel-foot">
       <button class="btn ghost" data-close="dataOverlay">Close</button>
@@ -399,6 +407,7 @@ footer{color:var(--muted);font-size:.78rem;padding-block:6px 30px;border-top:1px
 
 <script src="js/data.js"></script>
 <script src="js/core.js"></script>
+<script src="js/api.js"></script>
 <script>
 const Core = FootholdCore;
 
@@ -765,6 +774,34 @@ $("#dx-import").onclick=()=>{
   LS.set("pp_done",[...done]); LS.set("pp_vars",vars); saveUser(); rebuild();
   closeOv("dataOverlay"); render();
   toast("Imported"+(r.skipped?" ("+r.skipped+" invalid skipped)":""));
+};
+
+/* ---------------- optional server sync ---------------- */
+$("#dx-api").value=LS.get("pp_api","");
+$("#dx-ws").value=LS.get("pp_ws","");
+function apiClient(){
+  const url=$("#dx-api").value.trim();
+  if(!/^https?:\/\//.test(url)){ toast("Enter the API address, e.g. http://localhost:8080"); return null; }
+  LS.set("pp_api",url); return FootholdApi.client(url);
+}
+$("#dx-save").onclick=async()=>{
+  const c=apiClient(); if(!c) return;
+  try{
+    const r=await c.saveSnapshot({custom,notes,done,vars});
+    $("#dx-ws").value=r.id; LS.set("pp_ws",r.id);
+    toast("Saved "+r.commands+" commands, "+r.notes+" notes, "+r.done+" done");
+  }catch(e){ toast("Save failed: "+e.message); }
+};
+$("#dx-load").onclick=async()=>{
+  const c=apiClient(); if(!c) return;
+  const id=$("#dx-ws").value.trim(); if(!id){ toast("Paste a workspace id first"); return; }
+  try{
+    const r=Core.mergeImport({custom,notes,done,vars}, await c.load(id));
+    ({custom,notes,done,vars}=r); LS.set("pp_ws",id);
+    VARS.forEach(v=>{ const i=$("#var_"+v.k); if(i) i.value=vars[v.k]||""; });
+    LS.set("pp_done",[...done]); LS.set("pp_vars",vars); saveUser(); rebuild(); render();
+    toast("Loaded "+r.added+" commands from the server");
+  }catch(e){ toast("Load failed: "+e.message); }
 };
 
 buildVars(); buildChips(); render();
