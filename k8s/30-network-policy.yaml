@@ -27,7 +27,7 @@ spec:
       ports:
         - port: 1521
 ---
-# The API accepts HTTP from anywhere in the cluster and may only talk to Oracle and DNS.
+# The API accepts HTTP only from labeled pods in this namespace and may only talk to Oracle and DNS.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -39,7 +39,11 @@ spec:
       app: foothold-api
   policyTypes: ["Ingress", "Egress"]
   ingress:
-    - ports:
+    - from:
+        - podSelector:
+            matchLabels:
+              foothold-client: "true"
+      ports:
         - port: 8080
   egress:
     - to:
